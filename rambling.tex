@@ -5,6 +5,76 @@
 
 \begin{document}
 	
-	Hello again
+	\section*{ARM mode, Thumb mode, ARM64}
+	ARM is a RISC CPU designed with constant-length instructions; ARM mode used instructions encoded in 4 bytes. Because the most common instructions can be encoded using less information, Thumb mode uses instructions encoded in 2 bytes. Thumb-2 is an attempt at extending Thumb mode with a few 4 byte long instructions in order to compete with ARM mode. Thumb-2 is fairly successful, mostly due to XCode (for developing iOS applications) defaults to it.
+	
+	\section*{Numeral Systems}
+	Decimal numbers are represented with a "d" suffix,\\
+	Binary numbers are represented with a "0b" prefix or "b" suffix,\\
+	Hexadecimal numbers are represented with a "0x" prefix or "h" suffix,\\
+	Octal numbers are represented with a "0" prefix
+	
+	Octal and hexadecimal numbers are usually only used as bit patterns, such as the POSIX file permissions
+	
+	
+	\section*{Empty functions}
+	The simplest function is the function that does nothing.
+	This is compiled as;
+	
+		\subsection*{x86}
+		ret\\
+		this takes the saved address of the callee and jumps to that position
+		
+		\subsection*{ARM}
+		PROC\\
+		BX lr\\
+		ENDP\\
+		ARM does not save the return address on the local stack, but in the link register. BX lr causes execution to jump to that address.
+		% lr = link register
+		
+		\subsection*{MIPS}
+		j \$ra\\
+		nop\\
+		MIPS registers are named by number or by pseudo name.
+		% ra = return address
+	
+	\section*{Returning values}
+		\subsection*{x86}
+		Data is moved into EAX.
+		\subsection*{ARM}
+		Data is moved into R0
+		\subsection*{MIPS}
+		\$V0 (2) register is used to store a return value. LI (Load Immediate) loads the data into the register.
+		The returning jump appears before the load immediate, because of a RISC feature called branch delay slot, the instruction following a jump or branch is executed before the jump or branch itself.
+	
+	\section*{Intel vs AT\&T syntax}
+	Intel: instruction destination source
+	AT\&T: instruction source destination
+	
+	Intel: Brackets.
+	AT\&T: \% before register names, \$ before numbers. Parentheses.
+	
+	AT\&T: instruction suffix for operand size;
+	q - quad - 64 bit
+	l - long - 32 bit
+	w - word - 16 bit
+	b - byte - 8 bit
+	
+	64 bit RAX
+	last 32 bit EAX
+	last 16 bit AX
+	split into AH AL, for high and low
+	Win64, 4 arguments are passed in RCX, RDX, R8, R9
+	Linux, BSD and Mac OSX pass the first 6 arguments in RDI, RSI, RDX, RCX, R8, R9
+	
+	ARM: 64 bit X- prefix
+	32 bit W- prefix
+	! after an operand as pre-index
+	X29 is FP
+	X30 is LR
+	
+	
+	
+	MIPS has a "gloabl pointer". Each MIPS instruction has a size of 32 bits, so embedding a 32-bit address is impossible in a single instruction. It is possible to load data from an address 16 bits aways from a register; so register \$gp (28) called the global pointer keeps a 64KiB area of most used data, usually decided by the compiler developers. ELF files have this for the .sbss (uninitialized data) and .sdata (initialized data).
 	
 \end{document}
