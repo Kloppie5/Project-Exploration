@@ -17,242 +17,181 @@ def hexview_line_gen ( f, limit = -1 ) :
         if not byte or (limit != -1 and i > limit):
             break
         
-        i += 1
+        i += 16
 
-def print_dos_header ( f ) :
-    f.seek(0)
-    # DOS_HEADER { 64 bytes
-    print("---- DOS HEADER ----")
-    #   UINT16 e_magic - Magic number
-    print(f"  e_magic    : {f.read(2)}")
-    #   UINT16 e_cblp - Bytes on the last page of the file
-    print(f"  e_cblp     : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 e_cp - Pages in the file
-    print(f"  e_cp       : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 e_crlc - Relocations
-    print(f"  e_crlc     : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 e_cparhdr -Size of header in paragraphs
-    print(f"  e_cparhdr  : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 e_minalloc - Minimum extra paragraphs needed
-    print(f"  e_minalloc : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 e_maxalloc - Maximum extra paragraphs needed
-    print(f"  e_maxalloc : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 e_ss - Initial (relative) SSVirtualAddresslue
-    print(f"  e_ss       : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 e_sp - Initial SPVirtualAddresslue
-    print(f"  e_sp       : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 e_csum - Checksum
-    print(f"  e_csum     : <ignored>"); f.seek(2,1)
-    #   UINT16 e_ip - Initial IPVirtualAddresslue
-    print(f"  e_ip       : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 e_cs - Initial (relative) CSVirtualAddresslue
-    print(f"  e_cs       : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 e_lfarlc - File address of relocation table
-    print(f"  e_lfarlc   : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 e_ovno - Overlay number
-    print(f"  e_ovno     : <ignored>"); f.seek(2,1)
-    #   [8] e_res - Reserved words
-    print(f"  e_res      : <ignored>"); f.seek(8,1)
-    #   UINT16 e_oemid - OEM identifier
-    print(f"  e_oemid    : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 e_oeminfo - OEM information
-    print(f"  e_oeminfo  : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   [20] e_res2 - Reserved words
-    print(f"  e_res2     : <ignored>"); f.seek(20,1)
-    #   LONG e_lfanew - File address of new exe header
-    print(f"  e_lfanew   : {int.from_bytes(f.read(4), byteorder='little')}")
-    print("--------------------")
+LAYOUT_DOS_HEADER = [
+    {"name": "e_magic",    "start":  0, "size":  2},
+    {"name": "e_cblp",     "start":  2, "size":  2},
+    {"name": "e_cp",       "start":  4, "size":  2},
+    {"name": "e_crlc",     "start":  6, "size":  2},
+    {"name": "e_cparhdr",  "start":  8, "size":  2},
+    {"name": "e_minalloc", "start": 10, "size":  2},
+    {"name": "e_maxalloc", "start": 12, "size":  2},
+    {"name": "e_ss",       "start": 14, "size":  2},
+    {"name": "e_sp",       "start": 16, "size":  2},
+    {"name": "e_csum",     "start": 18, "size":  2},
+    {"name": "e_ip",       "start": 20, "size":  2},
+    {"name": "e_cs",       "start": 22, "size":  2},
+    {"name": "e_lfarlc",   "start": 24, "size":  2},
+    {"name": "e_ovno",     "start": 26, "size":  2},
+    {"name": "e_res",      "start": 28, "size":  8},
+    {"name": "e_oemid",    "start": 36, "size":  2},
+    {"name": "e_oeminfo",  "start": 38, "size":  2},
+    {"name": "e_res2",     "start": 40, "size": 20},
+    {"name": "e_lfanew",   "start": 60, "size":  4}
+]
 
-def print_pe_header ( f ) :
-    f.seek(60)
-    e_lfanew = int.from_bytes(f.read(4), byteorder='little')
-    f.seek(e_lfanew)
-    print("---- PE HEADER ----")
-    # PE HEADER {
-    #   [4] Signature
-    print(f"Signature            : {f.read(4)}")
-    #   UINT16 Machine
-    print(f"Machine              : {int.from_bytes(f.read(2), byteorder='little')}")
-        # 34404 -> AMD64
-    #   UINT16 NumberOfSections
-    print(f"NumberOfSections     : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT32 TimeDateStamp
-    print(f"TimeDateStamp        : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT32 PointerToSymbolTable
-    print(f"PointerToSymbolTable : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT32 NumberOfSymbols
-    print(f"NumberOfSymbols      : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT16SizeOfOptionalHeader
-    print(f"SizeOfOptionalHeader : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 Characteristics
-    print(f"Characteristics      : {int.from_bytes(f.read(2), byteorder='little')}")
-    print("-------------------")
+LAYOUT_COFF_HEADER = [
+    {"name": "Machine",              "start":  0, "size": 2},
+    {"name": "NumberOfSections",     "start":  2, "size": 2},
+    {"name": "TimeDateStamp",        "start":  4, "size": 4},
+    {"name": "PointerToSymbolTable", "start":  8, "size": 4},
+    {"name": "NumberOfSymbols",      "start": 12, "size": 4},
+    {"name": "SizeOfOptionalHeader", "start": 16, "size": 2},
+    {"name": "Characteristics",      "start": 18, "size": 2}
+]
 
-def print_nonoptional_optional_header ( f ) :
-    f.seek(60)
-    e_lfanew = int.from_bytes(f.read(4), byteorder='little')
-    f.seek(e_lfanew+24)
-    print("---- OPTIONAL HEADER ----")
-    # OPTIONAL_HEADER {
-    #   UINT16 Magic
-    print(f"Magic                                       : {int.from_bytes(f.read(2), byteorder='little')}")
-        # 523 -> PE32+
-    #   UINT8 MajorLinkerVersion
-    print(f"MajorLinkerVersion                          : {int.from_bytes(f.read(1), byteorder='little')}")
-    #   UINT8 MinorLinkerVersion
-    print(f"MinorLinkerVersion                          : {int.from_bytes(f.read(1), byteorder='little')}")
-    #   UINT32 SizeOfCode
-    print(f"SizeOfCode                                  : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT32 SizeOfInitializedData
-    print(f"SizeOfInitializedData                       : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT32 SizeOfUninitializedData
-    print(f"SizeOfUninitializedData                     : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT32 AddressOfEntryPoint
-    print(f"AddressOfEntryPoint                         : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT32 BaseOfCode
-    print(f"BaseOfCode                                  : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT64 ImageBase
-    print(f"ImageBase                                   : {int.from_bytes(f.read(8), byteorder='little')}")
-    #   UINT32 SectionAlignment
-    print(f"SectionAlignment                            : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT32 FileAlignment
-    print(f"FileAlignment                               : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT16 MajorOperatingSystemVersion
-    print(f"MajorOperatingSystemVersion                 : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 MinorOperatingSystemVersion
-    print(f"MinorOperatingSystemVersion                 : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 MajorImageVersion
-    print(f"MajorImageVersion                           : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 MinorImageVersion
-    print(f"MinorImageVersion                           : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 MajorSubsystemVersion
-    print(f"MajorSubsystemVersion                       : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 MinorSubsystemVersion
-    print(f"MinorSubsystemVersion                       : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   [4] Reserved1
-    print(f"Reserved1                                   : <ignored>"); f.seek(4,1)
-    #   UINT32 SizeOfImage
-    print(f"SizeOfImage                                 : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT32 SizeOfHeaders
-    print(f"SizeOfHeaders                               : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT32 CheckSum
-    print(f"CheckSum                                    : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT16 Subsystem
-    print(f"Subsystem                                   : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT16 DllCharacteristics
-    print(f"DllCharacteristics                          : {int.from_bytes(f.read(2), byteorder='little')}")
-    #   UINT64 SizeOfStackReserve
-    print(f"SizeOfStackReserve                          : {int.from_bytes(f.read(8), byteorder='little')}")
-    #   UINT64 SizeOfStackCommit
-    print(f"SizeOfStackCommit                           : {int.from_bytes(f.read(8), byteorder='little')}")
-    #   UINT64 SizeOfHeapReserve
-    print(f"SizeOfHeapReserve                           : {int.from_bytes(f.read(8), byteorder='little')}")
-    #   UINT64 SizeOfHeapCommit
-    print(f"SizeOfHeapCommit                            : {int.from_bytes(f.read(8), byteorder='little')}")
-    #   UINT32 LoaderFlags
-    print(f"LoaderFlags                                 : <ignored>"); f.seek(4,1)
-    #   UINT32 NumberOfRvaAndSizes
-    print(f"NumberOfRvaAndSizes                         : {int.from_bytes(f.read(4), byteorder='little')}")
-    #   UINT32 ExportDirectoryVirtualAddress
-    print(f"ExportDirectoryVirtualAddress               : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 ExportDirectorySize
-    print(f"ExportDirectorySize                         : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 ImportDirectoryVirtualAddress
-    print(f"ImportDirectoryVirtualAddress               : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 ImportDirectorySize
-    print(f"ImportDirectorySize                         : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 ResourceDirectoryVirtualAddress
-    print(f"ResourceDirectoryVirtualAddress             : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 ResourceDirectorySize
-    print(f"ResourceDirectorySize                       : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 ExceptionDirectoryVirtualAddress
-    print(f"ExceptionDirectoryVirtualAddress            : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 ExceptionDirectorySize
-    print(f"ExceptionDirectorySize                      : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 SecurityDirectoryVirtualAddress
-    print(f"SecurityDirectoryVirtualAddress             : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 SecurityDirectorySize
-    print(f"SecurityDirectorySize                       : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 BaseRelocationTableVirtualAddress
-    print(f"BaseRelocationTableVirtualAddress           : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 BaseRelocationTableSize
-    print(f"BaseRelocationTableSize                     : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 DebugDirectoryVirtualAddress
-    print(f"DebugDirectoryVirtualAddress                : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 DebugDirectorySize
-    print(f"DebugDirectorySize                          : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 ArchitectureSpecificDataVirtualAddress
-    print(f"ArchitectureSpecificDataVirtualAddress      : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 ArchitectureSpecificDataSize
-    print(f"ArchitectureSpecificDataSize                : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 RVAofGPVirtualAddress
-    print(f"RVAofGPVirtualAddress                       : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 RVAofGPSize
-    print(f"RVAofGPSize                                 : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 TLSDirectoryVirtualAddress
-    print(f"TLSDirectoryVirtualAddress                  : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 TLSDirectorySize
-    print(f"TLSDirectorySize                            : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 LoadConfigurationDirectoryVirtualAddress
-    print(f"LoadConfigurationDirectoryVirtualAddress    : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 LoadConfigurationDirectorySize
-    print(f"LoadConfigurationDirectorySize              : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 BoundImportDirectoryinheadersVirtualAddress
-    print(f"BoundImportDirectoryinheadersVirtualAddress : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 BoundImportDirectoryinheadersSize
-    print(f"BoundImportDirectoryinheadersSize           : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 ImportAddressTableVirtualAddress
-    print(f"ImportAddressTableVirtualAddress            : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 ImportAddressTableSize
-    print(f"ImportAddressTableSize                      : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 DelayLoadImportDescriptorsVirtualAddress
-    print(f"DelayLoadImportDescriptorsVirtualAddress    : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 DelayLoadImportDescriptorsSize
-    print(f"DelayLoadImportDescriptorsSize              : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 COMRuntimedescriptorVirtualAddress
-    print(f"COMRuntimedescriptorVirtualAddress          : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   UINT32 COMRuntimedescriptorSize
-    print(f"COMRuntimedescriptorSize                    : {int.from_bytes(f.read(4), byteorder='little')}")
-	#   [8] 0
-    print(f"Padding                                     : <ignored>"); f.seek(8,1)
-    print("-------------------------")   
+LAYOUT_OPTIONAL_HEADER32 = [
+    {"name": "Signature",                   "start":  0, "size":   2},
+    {"name": "MajorLinkerVersion",          "start":  2, "size":   1},
+    {"name": "MinorLinkerVersion",          "start":  3, "size":   1},
+    {"name": "SizeOfCode",                  "start":  4, "size":   4},
+    {"name": "SizeOfInitializedData",       "start":  8, "size":   4},
+    {"name": "SizeOfUninitializedData",     "start": 12, "size":   4},
+    {"name": "AddressOfEntryPoint",         "start": 16, "size":   4},
+    {"name": "BaseOfCode",                  "start": 20, "size":   4},
+    {"name": "BaseOfData",                  "start": 24, "size":   4},
+    {"name": "ImageBase",                   "start": 28, "size":   4},
+    {"name": "SectionAlignment",            "start": 32, "size":   4},
+    {"name": "FileAlignment",               "start": 36, "size":   4},
+    {"name": "MajorOperatingSystemVersion", "start": 40, "size":   2},
+    {"name": "MinorOperatingSystemVersion", "start": 42, "size":   2},
+    {"name": "MajorImageVersion",           "start": 44, "size":   2},
+    {"name": "MinorImageVersion",           "start": 46, "size":   2},
+    {"name": "MajorSubsystemVersion",       "start": 48, "size":   2},
+    {"name": "MinorSubsystemVersion",       "start": 50, "size":   2},
+    {"name": "Win32VersionValue",           "start": 52, "size":   4},
+    {"name": "SizeOfImage",                 "start": 56, "size":   4},
+    {"name": "SizeOfHeaders",               "start": 60, "size":   4},
+    {"name": "CheckSum",                    "start": 64, "size":   4},
+    {"name": "Subsystem",                   "start": 68, "size":   2},
+    {"name": "DllCharacteristics",          "start": 70, "size":   2},
+    {"name": "SizeOfStackReserve",          "start": 72, "size":   4},
+    {"name": "SizeOfStackCommit",           "start": 76, "size":   4},
+    {"name": "SizeOfHeapReserve",           "start": 80, "size":   4},
+    {"name": "SizeOfHeapCommit",            "start": 84, "size":   4},
+    {"name": "LoaderFlags",                 "start": 88, "size":   4},
+    {"name": "NumberOfRvaAndSizes",         "start": 92, "size":   4}
+]
 
-def print_headers ( f ) :
-    f.seek(60)
-    e_lfanew = int.from_bytes(f.read(4), byteorder='little')
-    f.seek(e_lfanew+6)
-    NumberOfSections = int.from_bytes(f.read(2), byteorder='little')
-    f.seek(e_lfanew+20)
-    SizeOfOptionalHeader = int.from_bytes(f.read(2), byteorder='little')
-    f.seek(e_lfanew+24+SizeOfOptionalHeader)
-    
-    for _ in range(NumberOfSections) :
-        # SECTION_HEADER {
-        #   [8] Name
-        print(f"---- {f.read(8)} ----")
-        #   UINT32 VirtualSize
-        print(f"VirtualSize          : {int.from_bytes(f.read(4), byteorder='little')}")
-        #   UINT32 VirtualAddress
-        print(f"VirtualAddress       : {int.from_bytes(f.read(4), byteorder='little')}")
-        #   UINT32 SizeOfRawData
-        print(f"SizeOfRawData        : {int.from_bytes(f.read(4), byteorder='little')}")
-        #   UINT32 PointerToRawData
-        print(f"PointerToRawData     : {int.from_bytes(f.read(4), byteorder='little')}")
-        #   UINT32 PointerToRelocations
-        print(f"PointerToRelocations : {int.from_bytes(f.read(4), byteorder='little')}")
-        #   UINT32 PointerToLinenumbers
-        print(f"PointerToLinenumbers : {int.from_bytes(f.read(4), byteorder='little')}")
-        #   UINT16 NumberOfRelocations
-        print(f"NumberOfRelocations  : {int.from_bytes(f.read(2), byteorder='little')}")
-        #   UINT16 NumberOfLinenumbers
-        print(f"NumberOfLinenumbers  : {int.from_bytes(f.read(2), byteorder='little')}")
-        #   UINT32 Characteristics
-        print(f"Characteristics      : {int.from_bytes(f.read(4), byteorder='little')}")
-        print(f"------------------")
+LAYOUT_OPTIONAL_HEADER64 = [
+    {"name": "Signature",                   "start":   0, "size":   2},
+    {"name": "MajorLinkerVersion",          "start":   2, "size":   1},
+    {"name": "MinorLinkerVersion",          "start":   3, "size":   1},
+    {"name": "SizeOfCode",                  "start":   4, "size":   4},
+    {"name": "SizeOfInitializedData",       "start":   8, "size":   4},
+    {"name": "SizeOfUninitializedData",     "start":  12, "size":   4},
+    {"name": "AddressOfEntryPoint",         "start":  16, "size":   4},
+    {"name": "BaseOfCode",                  "start":  20, "size":   4},
+    {"name": "ImageBase",                   "start":  24, "size":   8},
+    {"name": "SectionAlignment",            "start":  32, "size":   4},
+    {"name": "FileAlignment",               "start":  36, "size":   4},
+    {"name": "MajorOperatingSystemVersion", "start":  40, "size":   2},
+    {"name": "MinorOperatingSystemVersion", "start":  42, "size":   2},
+    {"name": "MajorImageVersion",           "start":  44, "size":   2},
+    {"name": "MinorImageVersion",           "start":  46, "size":   2},
+    {"name": "MajorSubsystemVersion",       "start":  48, "size":   2},
+    {"name": "MinorSubsystemVersion",       "start":  50, "size":   2},
+    {"name": "Win32VersionValue",           "start":  52, "size":   4},
+    {"name": "SizeOfImage",                 "start":  56, "size":   4},
+    {"name": "SizeOfHeaders",               "start":  60, "size":   4},
+    {"name": "CheckSum",                    "start":  64, "size":   4},
+    {"name": "Subsystem",                   "start":  68, "size":   2},
+    {"name": "DllCharacteristics",          "start":  70, "size":   2},
+    {"name": "SizeOfStackReserve",          "start":  72, "size":   8},
+    {"name": "SizeOfStackCommit",           "start":  80, "size":   8},
+    {"name": "SizeOfHeapReserve",           "start":  88, "size":   8},
+    {"name": "SizeOfHeapCommit",            "start":  96, "size":   8},
+    {"name": "LoaderFlags",                 "start": 104, "size":   4},
+    {"name": "NumberOfRvaAndSizes",         "start": 108, "size":   4},
+]
+
+LAYOUT_DATA_DIRECTORY = [
+    {"name": "ExportDirectoryVirtualAddress",               "start":   0, "size": 4},
+    {"name": "ExportDirectorySize",                         "start":   4, "size": 4},
+    {"name": "ImportDirectoryVirtualAddress",               "start":   8, "size": 4},
+    {"name": "ImportDirectorySize",                         "start":  12, "size": 4},
+    {"name": "ResourceDirectoryVirtualAddress",             "start":  16, "size": 4},
+    {"name": "ResourceDirectorySize",                       "start":  20, "size": 4},
+    {"name": "ExceptionDirectoryVirtualAddress",            "start":  24, "size": 4},
+    {"name": "ExceptionDirectorySize",                      "start":  28, "size": 4},
+    {"name": "SecurityDirectoryVirtualAddress",             "start":  32, "size": 4},
+    {"name": "SecurityDirectorySize",                       "start":  36, "size": 4},
+    {"name": "BaseRelocationTableVirtualAddress",           "start":  40, "size": 4},
+    {"name": "BaseRelocationTableSize",                     "start":  44, "size": 4},
+    {"name": "DebugDirectoryVirtualAddress",                "start":  48, "size": 4},
+    {"name": "DebugDirectorySize",                          "start":  52, "size": 4},
+    {"name": "ArchitectureSpecificDataVirtualAddress",      "start":  56, "size": 4},
+    {"name": "ArchitectureSpecificDataSize",                "start":  60, "size": 4},
+    {"name": "RVAofGPVirtualAddress",                       "start":  64, "size": 4},
+    {"name": "RVAofGPSize",                                 "start":  68, "size": 4},
+    {"name": "TLSDirectoryVirtualAddress",                  "start":  72, "size": 4},
+    {"name": "TLSDirectorySize",                            "start":  76, "size": 4},
+    {"name": "LoadConfigurationDirectoryVirtualAddress",    "start":  80, "size": 4},
+    {"name": "LoadConfigurationDirectorySize",              "start":  84, "size": 4},
+    {"name": "BoundImportDirectoryinheadersVirtualAddress", "start":  88, "size": 4},
+    {"name": "BoundImportDirectoryinheadersSize",           "start":  92, "size": 4},
+    {"name": "ImportAddressTableVirtualAddress",            "start":  96, "size": 4},
+    {"name": "ImportAddressTableSize",                      "start": 100, "size": 4},
+    {"name": "DelayLoadImportDescriptorsVirtualAddress",    "start": 104, "size": 4},
+    {"name": "DelayLoadImportDescriptorsSize",              "start": 108, "size": 4},
+    {"name": "COMRuntimedescriptorVirtualAddress",          "start": 112, "size": 4},
+    {"name": "COMRuntimedescriptorSize",                    "start": 116, "size": 4},
+    {"name": "Padding",                                     "start": 120, "size": 8}
+]
+
+LAYOUT_SECTION_HEADER = [
+    {"name": "Name",                 "start":  0, "size": 8},
+    {"name": "VirtualSize",          "start":  8, "size": 4},
+    {"name": "VirtualAddress",       "start": 12, "size": 4},
+    {"name": "SizeOfRawData",        "start": 16, "size": 4},
+    {"name": "PointerToRawData",     "start": 20, "size": 4},
+    {"name": "PointerToRelocations", "start": 24, "size": 4},
+    {"name": "PointerToLinenumbers", "start": 28, "size": 4},
+    {"name": "NumberOfRelocations",  "start": 32, "size": 2},
+    {"name": "NumberOfLinenumbers",  "start": 34, "size": 2},
+    {"name": "Characteristics",      "start": 36, "size": 4}
+]
+
+LAYOUT_PE32_PLUS = [
+    {"name": "MS-DOS Header",   "start":   0, "size":  64, "layout": LAYOUT_DOS_HEADER},
+    {"name": "Signature",       "start": 200, "size":   4},
+    {"name": "COFF Header",     "start": 204, "size":  20, "layout": LAYOUT_COFF_HEADER},
+    {"name": "Optional Header", "start": 224, "size": 112, "layout": LAYOUT_OPTIONAL_HEADER64},
+    {"name": "Data Directory",  "start": 336, "size": 128, "layout": LAYOUT_DATA_DIRECTORY},
+    {"name": "Section Table",   "start": 464, "size":  40, "layout": LAYOUT_SECTION_HEADER}
+]
+
+def read_int ( f, start, size, printtext = "" ) :
+    f.seek(start)
+    read = int.from_bytes(f.read(size), byteorder='little')
+    if printtext != "" :
+        print(f"Reading '{printtext}' at [{start}, {size}]: {read}")
+    return read
+
+def read_bytes ( f, start, size, printtext = "" ) :
+    f.seek(start)
+    read = f.read(size)
+    if printtext != "" :
+        print(f"Reading '{printtext}' at [{start}, {size}]: {read}")
+    return read
+
+def print_pe ( f ) :
+    NumberOfSections = read_int(f, 206, 2)
+    for i in range(NumberOfSections) :
+        print(f"Found section '{read_bytes(f,464+40*i,8)}'")
 
 with open("E:/SteamLibrary/steamapps/common/Monster Hunter World/MonsterHunterWorld.exe", "rb") as f:
-    # hexview_line_gen(f, 1000)
-    # print_dos_header(f)
-    print_pe_header(f)
-    print_nonoptional_optional_header(f)
-    print_headers(f)
+    f.seek(464)
+    hexview_line_gen(f,800)
+    print_pe(f)
