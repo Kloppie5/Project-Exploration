@@ -1,5 +1,7 @@
+from disassembler import disassemble_x64
 
-def hexview_line_gen ( f, limit = -1 ) :
+def hexview_line_gen ( f, start, limit = -1 ) :
+    f.seek(start)
     i = 0
     while 1:
         _hex = ""
@@ -10,9 +12,14 @@ def hexview_line_gen ( f, limit = -1 ) :
             if not byte:
                 break 
             _hex += byte.hex()+" "
-            _asc += byte.decode('utf-8', 'replace').replace(u'\ufffd', '.')
+            if byte.isalpha() :
+                _asc += byte.decode('utf-8', 'replace')
+            elif byte == b'\x00':
+                _asc += ' '
+            else :
+                _asc += '.'
         
-        print(f"{i:08d}: {_hex:48} {_asc:16}")
+        print(f"{start+i:08X}: {_hex:48} {_asc:16}")
         
         if not byte or (limit != -1 and i > limit):
             break
@@ -188,10 +195,20 @@ def read_bytes ( f, start, size, printtext = "" ) :
 
 def print_pe ( f ) :
     NumberOfSections = read_int(f, 206, 2)
+    AddressOfEntryPoint = read_int(f, 240, 4)
+
     for i in range(NumberOfSections) :
-        print(f"Found section '{read_bytes(f,464+40*i,8)}'")
+        VirtualSize = read_int(f,464+40*i+8,4)
+        VirtualAddress = read_int(f,464+40*i+12,4)
+        PointerToRawData = read_int(f,464+40*i+20,4)
+        
+        print(f"Found section '{read_bytes(f,464+40*i,8)}' ({VirtualAddress}-{VirtualAddress+VirtualSize})")
+
+        if AddressOfEntryPoint >= VirtualAddress and AddressOfEntryPoint <= VirtualAddress+VirtualSize :
+            EntryPoint = AddressOfEntryPoint-VirtualAddress+PointerToRawData
+            print(f"Found Entrypoint {EntryPoint:X}")
+            hexview_line_gen(f,EntryPoint,100)
 
 with open("E:/SteamLibrary/steamapps/common/Monster Hunter World/MonsterHunterWorld.exe", "rb") as f:
-    f.seek(464)
-    hexview_line_gen(f,800)
     print_pe(f)
+    disassemble_x64(f,0x24F52C20,100)

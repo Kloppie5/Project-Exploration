@@ -1,0 +1,27 @@
+MZ header
+    lfanew C8
+PE header
+    Machine 8664
+    NumberOfSections 14
+    OptionalHeaderSize F0
+    Characteristics 23 (Exec, NoReloc)
+    EntryPoint 24F52C20
+
+# 24F52C20     - 48 8D 64 24 D8        - lea rsp,[rsp-28]
+# 24F52C25     - 50                    - push rax
+# 24F52C26     - 51                    - push rcx
+# 24F52C27     - 52                    - push rdx
+# 24F52C28     - 80 3D D1FFFFFF 00     - cmp byte ptr [24F52C00],00 { (0),(9460301) }
+# < 24F52C2F   - 75 23                 - jne +23 to 24F52C54
+#   24F52C31   - 48 8D 05 C82FB3DA     - lea rax,[FFFFFFFFFFA85C00] { -5743616 }
+#   24F52C38   - 48 8D 0D 22000000     - lea rcx,[24F52C61] { (0) }
+#   > 24F52C3F - 48 8B 10              - mov rdx,[rax]
+#     24F52C42 - 48 05 00100000        - add rax,00001000 { (146214678) }
+#     24F52C48 - 48 39 C8              - cmp rax,rcx
+#   < 24F52C4B - 7C F2                 - jl -14 to 24F52C3F
+#   24F52C4D   - C6 05 ACFFFFFF 01     - mov byte ptr [24F52C00],01 { (0),(90) }
+# > 24F52C54   - 5A                    - pop rdx
+# 24F52C55     - 59                    - pop rcx
+# 24F52C56     - 58                    - pop rax
+# 24F52C57     - 48 8D 64 24 28        - lea rsp,[rsp+28]
+# 24F52C5C     - E9 9FEFFFFF           - jmp 24F51C00
