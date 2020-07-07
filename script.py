@@ -210,43 +210,61 @@ def stream_dir_exe_gen () :
 for file in stream_dir_exe_gen() :
     print(f"{file.path}")
     with open(file, "rb") as f:
+        # DOS Header
         e_magic = read_bytes(f, 0, 2)
         if e_magic != b'MZ' :
-            print(f"File {file.path} does not have a valid MS-DOS Header Magic Number")
+            print(f"(!) File {file.path} does not have a valid MS-DOS Header Magic Number")
             continue
-        e_lfanew = read_int(f, 60, 4)
-        PESignature = read_bytes(f, e_lfanew, 4)
-        if PESignature != b'PE\x00\x00' :
-            print(f"File {file.path} does not have a valid PE Header Signature")
+
+        # PE Signature
+        PTR_pe_signature = read_int(f, 60, 4)
+        PE_Signature = read_bytes(f, PTR_pe_signature, 4)
+        if PE_Signature != b'PE\x00\x00' :
+            print(f"(!) File {file.path} does not have a valid PE Header Signature")
             continue
-        Machine = read_int(f, e_lfanew+4, 2)
-        OptionalHeaderSignature = read_int(f, e_lfanew+24, 2)
-        NumberOfSections = read_int(f, e_lfanew+4+2, 2, "NumberOfSections")
-        AddressOfEntryPoint = read_int(f, e_lfanew+4+20+16, 4, "AddressOfEntryPoint")
-        if Machine == 0x14c and OptionalHeaderSignature == 0x010b: # I386 PE32
-            print("I386 PE32")
-            for i in range(NumberOfSections) :
-                VirtualSize = read_int(f,e_lfanew+4+20+96+128+40*i+8, 4,)
-                VirtualAddress = read_int(f,e_lfanew+4+20+96+128+40*i+12,4)
-                SizeOfRawData = read_int(f,e_lfanew+4+20+96+128+40*i+16,4)
-                PointerToRawData = read_int(f,e_lfanew+4+20+96+128+40*i+20,4)
 
-
-                if AddressOfEntryPoint >= VirtualAddress and AddressOfEntryPoint <= VirtualAddress+VirtualSize :
-                    EntryPoint = AddressOfEntryPoint-VirtualAddress+PointerToRawData
-                    print(f"Found Entrypoint {EntryPoint:X} in section '{read_bytes(f,e_lfanew+4+20+96+128+40*i,8)}' ({VirtualAddress}-{VirtualAddress+VirtualSize})")
-                # hexview_line_gen(f,EntryPoint,100)
-        elif Machine == 0x8664 and OptionalHeaderSignature == 0x020b: # AMD64 PE32+
-            print("AMD64 PE32+")
-            for i in range(NumberOfSections) :
-                VirtualSize = read_int(f,e_lfanew+4+20+112+128+40*i+8,4)
-                VirtualAddress = read_int(f,e_lfanew+4+20+112+128+40*i+12,4)
-                SizeOfRawData = read_int(f,e_lfanew+4+20+112+128+40*i+16,4)
-                PointerToRawData = read_int(f,e_lfanew+4+20+112+128+40*i+20,4)
-
-                if AddressOfEntryPoint >= VirtualAddress and AddressOfEntryPoint <= VirtualAddress+VirtualSize :
-                    EntryPoint = AddressOfEntryPoint-VirtualAddress+PointerToRawData
-                    print(f"Found Entrypoint {EntryPoint:X} in section '{read_bytes(f,e_lfanew+4+20+112+128+40*i,8)}' ({VirtualAddress}-{VirtualAddress+VirtualSize})")
-                # hexview_line_gen(f,EntryPoint,100)
+        # COFF Header
+        PTR_coff_header = PTR_pe_signature + 4
+        SIZE_coff_header = 20
+        Machine = read_int(f, PTR_coff_header, 2)
+        NumberOfSections = read_int(f, PTR_coff_header + 2, 2)
+        if Machine == 0x14c: # I386
+            print("> I386")
+        elif Machine == 0x8664: # AMD64
+            print("> AMD64")
         else :
-            print(f"Unknown {Machine}:{OptionalHeaderSignature}")
+            print(f"(!) Unknown Machine {Machine}")
+        
+        # Optional Header (though usually nonoptional)
+        PTR_optional_header = PTR_coff_header + SIZE_coff_header
+        SIZE_optional_header = -1
+        OptionalHeaderSignature = read_int(f, PTR_optional_header, 2)
+        AddressOfEntryPoint = read_int(f, PTR_optional_header + 16, 4)
+        if OptionalHeaderSignature == 0x010b: # PE32
+            print("> PE32")
+            SIZE_optional_header = 96        
+        elif OptionalHeaderSignature == 0x020b: # PE32+
+            print("> PE32+")
+            SIZE_optional_header = 112
+        else :
+            print(f"(!) Unknown OptionalHeaderSignature {OptionalHeaderSignature}")
+
+        # Data Directories (though technically part of the optional header)
+        PTR_data_directories = PTR_optional_header + SIZE_optional_header
+        SIZE_data_directories = 128
+
+        # Sections
+        PTR_sections = PTR_data_directories + SIZE_data_directories
+        SIZE_section = 40
+        for i in range(NumberOfSections) :
+            PTR_section = PTR_sections + SIZE_section * i
+            Name = read_bytes(f, PTR_section, 8)
+            VirtualSize = read_int(f, PTR_section + 8, 4)
+            VirtualAddress = read_int(f, PTR_section + 12, 4)
+            SizeOfRawData = read_int(f, PTR_section + 16, 4)
+            PointerToRawData = read_int(f, PTR_section + 20, 4)
+            if AddressOfEntryPoint >= VirtualAddress and AddressOfEntryPoint <= VirtualAddress+VirtualSize :
+                EntryPoint = AddressOfEntryPoint-VirtualAddress+PointerToRawData
+                print(f"> Found Entrypoint {EntryPoint:X} in section '{Name}' ({VirtualAddress}-{VirtualAddress+VirtualSize})")
+                # hexview_line_gen(f,EntryPoint,100)
+        print()
