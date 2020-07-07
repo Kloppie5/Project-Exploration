@@ -26,7 +26,14 @@ def hexview_line_gen ( f, start, limit = -1 ) :
         
         i += 16
 
-def disassembled_view ( f, start, limit = -1 ) :
+counter = 0
+def opcode_print ( pos, hex, text = "" ) :
+    global counter
+    if text.startswith("UNKNOWN"):
+        print(f"{counter:4} {pos:08X}: {hex.hex():48} {text}")
+        counter += 1
+
+def disassembled_view ( f, start, callback, limit = -1 ) :
     f.seek(start)
     i = 0
 
@@ -34,97 +41,474 @@ def disassembled_view ( f, start, limit = -1 ) :
 
     while 1:
         if limit != -1 and i > limit:
-            print(f"{start+i:08X}: {_hex.hex():48}")
+            callback(start+i, _hex)
             return
         
         byte = f.read(1)
         if not byte:
-            print(f"{start+i:08X}: {_hex.hex():48}")
+            callback(start+i, _hex)
             return
 
         _hex += byte
 
-        if byte == b'\x03' :
+        if byte == b'\x00' :
             byte = f.read(1)
             _hex += byte
-            if byte == b'\xC6' :
-                print(f"{start+i:08X}: {_hex.hex():48} ADD eax, esi")
+            if byte == b'\x17' :
+                callback(start+i, _hex, f"ADD [edi], dl")
+                _hex = bytearray()
+            elif byte == b'\x23' :
+                callback(start+i, _hex, f"ADD [ebx], ah")
+                _hex = bytearray()
+            elif byte == b'\x38' :
+                callback(start+i, _hex, f"ADD [eax], bh")
+                _hex = bytearray()
+            elif byte == b'\x40' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"ADD [eax+{number}], al")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x48' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"ADD [eax+{number}], cl")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x50' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"ADD [eax+{number}], dl")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x58' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"ADD [eax+{number}], bl")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x60' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"ADD [eax+{number}], ah")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x68' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"ADD [eax+{number}], ch")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x80' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"ADD [eax+{number}], al")
+                _hex = bytearray()
+                i += 4
+            elif byte == b'\xBC' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\x0F' :
+                    read = f.read(4)
+                    _hex += read
+                    number = int.from_bytes(read, byteorder='little', signed=True)
+                    callback(start+i, _hex, f"ADD [edi+ecx+{number:08X}], bh")
+                    _hex = bytearray()
+                    i += 4
+                i += 1
+            elif byte == b'\xD4' :
+                callback(start+i, _hex, f"ADD ah, dl")
+                _hex = bytearray()
+            elif byte == b'\xDC' :
+                callback(start+i, _hex, f"ADD ah, bl")
+                _hex = bytearray()
+            elif byte == b'\xEC' :
+                callback(start+i, _hex, f"ADD ah, ch")
+                _hex = bytearray()
+            elif byte == b'\xF8' :
+                callback(start+i, _hex, f"ADD al, bh")
+                _hex = bytearray()
+            i += 1
+        elif byte == b'\x01' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x88' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"ADD [eax+{number:08X}], ecx")
+                _hex = bytearray()
+                i += 4
+            elif byte == b'\xC1' :
+                callback(start+i, _hex, f"ADD ecx, eax")
+                _hex = bytearray()
+            i += 1
+        elif byte == b'\x02' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xC1' :
+                callback(start+i, _hex, f"ADD al, cl")
+                _hex = bytearray()
+            i += 1
+        elif byte == b'\x03' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x23' :
+                callback(start+i, _hex, f"ADD esp, [ebx]")
+                _hex = bytearray()
+            elif byte == b'\x75' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"ADD esi, [ebp+{number}]")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xC1' :
+                callback(start+i, _hex, f"ADD eax, ecx")
+                _hex = bytearray()
+            elif byte == b'\xC6' :
+                callback(start+i, _hex, f"ADD eax, esi")
                 _hex = bytearray()
             elif byte == b'\xC8' :
-                print(f"{start+i:08X}: {_hex.hex():48} ADD ecx, eax")
+                callback(start+i, _hex, f"ADD ecx, eax")
                 _hex = bytearray()
-            else :
-                print(f"{start+i:08X}: {_hex.hex():48}")
+            elif byte == b'\xF0' :
+                callback(start+i, _hex, f"ADD esi, eax")
+                _hex = bytearray()
+            elif byte == b'\xF8' :
+                callback(start+i, _hex, f"ADD edi, eax")
+                _hex = bytearray()
             i += 1
+        elif byte == b'\x04' :
+            read = f.read(1)
+            _hex += read
+            number = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"ADD al, {number}")
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\x05' :
+            read = f.read(4)
+            _hex += read
+            number = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"ADD eax, {number}")
+            _hex = bytearray()
+            i += 4
+        elif byte == b'\x08' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x5E' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"OR [esi+{number}], bl")
+                _hex = bytearray()
+                i += 1
+            i += 1
+        elif byte == b'\x0E' :
+            callback(start+i, _hex, f"PUSH cs")
+            _hex = bytearray()
         elif byte == b'\x0F' :
             byte = f.read(1)
             _hex += byte
-            if byte == b'\x82' :
+            if byte == b'\x49' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"CMOVNS eax, [eax]")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x82' :
                 read = f.read(4)
                 _hex += read
                 dist = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} JB [far] {dist} to {start+i+6+dist:08X}")
+                callback(start+i, _hex, f"JB [far] {dist} to {start+i+6+dist:08X}")
                 _hex = bytearray()
                 i += 4
-            else :
-                print(f"{start+i:08X}: {_hex.hex():48}")
+            elif byte == b'\x87' :
+                read = f.read(4)
+                _hex += read
+                dist = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"JA [far] {dist} to {start+i+6+dist:08X}")
+                _hex = bytearray()
+                i += 4
+            i += 1
+        elif byte == b'\x10' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x49' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"ADC [ecx+{number}], cl")
+                _hex = bytearray()
+                i += 1
+            i += 1
+        elif byte == b'\x11' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x49' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"ADC [ecx+{number}], ecx")
+                _hex = bytearray()
+                i += 1
+            i += 1
+        elif byte == b'\x23' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xC8' :
+                callback(start+i, _hex, f"AND ecx, eax")
+                _hex = bytearray()
+            elif byte == b'\xD1' :
+                callback(start+i, _hex, f"AND edx, ecx")
+                _hex = bytearray()
+            i += 1
+        elif byte == b'\x2B' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xC8' :
+                callback(start+i, _hex, f"SUB ecx, eax")
+                _hex = bytearray()
+            elif byte == b'\xD0' :
+                callback(start+i, _hex, f"SUB edx, eax")
+                _hex = bytearray()
+            elif byte == b'\xD1' :
+                callback(start+i, _hex, f"SUB edx, ecx")
+                _hex = bytearray()
+            i += 1
+        elif byte == b'\x30' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x11' :
+                callback(start+i, _hex, f"XOR [ecx], dl")
+                _hex = bytearray()
+            i += 1
+        elif byte == b'\x33' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xC0' :
+                callback(start+i, _hex, f"XOR eax, eax")
+                _hex = bytearray()
+            i += 1
+        elif byte == b'\x34' :
+            read = f.read(1)
+            _hex += read
+            number = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"XOR al, {number}")
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\x39' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x05' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"CMP [{number}], eax")
+                _hex = bytearray()
+                i += 4
             i += 1
         elif byte == b'\x3B' :
             byte = f.read(1)
             _hex += byte
-            if byte == b'\xF8' :
-                print(f"{start+i:08X}: {_hex.hex():48} CMP edi, eax")
+            if byte == b'\x0D' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"CMP ecx, [{number:08X}]")
+                _hex = bytearray()
+                i += 4
+            elif byte == b'\x35' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"CMP esi, [{number:08X}]")
+                _hex = bytearray()
+                i += 4
+            elif byte == b'\xC1' :
+                callback(start+i, _hex, f"CMP eax, ecx")
+                _hex = bytearray()
+            elif byte == b'\xCA' :
+                callback(start+i, _hex, f"CMP ecx, edx")
+                _hex = bytearray()
+            elif byte == b'\xDF' :
+                callback(start+i, _hex, f"CMP ebx, edi")
+                _hex = bytearray()
+            elif byte == b'\xF7' :
+                callback(start+i, _hex, f"CMP esi, edi")
+                _hex = bytearray()
+            elif byte == b'\xF8' :
+                callback(start+i, _hex, f"CMP edi, eax")
+                _hex = bytearray()
+            elif byte == b'\xFA' :
+                callback(start+i, _hex, f"CMP edi, edx")
                 _hex = bytearray()
             elif byte == b'\xFE' :
-                print(f"{start+i:08X}: {_hex.hex():48} CMP edi, esi")
+                callback(start+i, _hex, f"CMP edi, esi")
                 _hex = bytearray()
-            else :
-                print(f"{start+i:08X}: {_hex.hex():48}")
             i += 1
+        elif byte == b'\x3D' :
+            read = f.read(4)
+            _hex += read
+            number = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"CMP eax, {number}")
+            _hex = bytearray()
+            i += 4
+        elif byte == b'\x40' :
+            callback(start+i, _hex, f"INC eax")
+            _hex = bytearray()
+        elif byte == b'\x41' :
+            callback(start+i, _hex, f"INC ecx")
+            _hex = bytearray()
+        elif byte == b'\x46' :
+            callback(start+i, _hex, f"INC esi")
+            _hex = bytearray()
+        elif byte == b'\x48' :
+            callback(start+i, _hex, f"DEC eax")
+            _hex = bytearray()
+        elif byte == b'\x49' :
+            callback(start+i, _hex, f"DEC ecx")
+            _hex = bytearray()
+        elif byte == b'\x4E' :
+            callback(start+i, _hex, f"DEC esi")
+            _hex = bytearray()
+        elif byte == b'\x50' :
+            callback(start+i, _hex, f"PUSH eax")
+            _hex = bytearray()
+        elif byte == b'\x51' :
+            callback(start+i, _hex, f"PUSH ecx")
+            _hex = bytearray()
+        elif byte == b'\x53' :
+            callback(start+i, _hex, f"PUSH ebx")
+            _hex = bytearray()
         elif byte == b'\x55' :
-            print(f"{start+i:08X}: {_hex.hex():48} PUSH ebp")
+            callback(start+i, _hex, f"PUSH ebp")
             _hex = bytearray()
         elif byte == b'\x56' :
-            print(f"{start+i:08X}: {_hex.hex():48} PUSH esi")
+            callback(start+i, _hex, f"PUSH esi")
             _hex = bytearray()
         elif byte == b'\x57' :
-            print(f"{start+i:08X}: {_hex.hex():48} PUSH edi")
+            callback(start+i, _hex, f"PUSH edi")
+            _hex = bytearray()
+        elif byte == b'\x59' :
+            callback(start+i, _hex, f"POP ecx")
+            _hex = bytearray()
+        elif byte == b'\x5B' :
+            callback(start+i, _hex, f"POP ebx")
+            _hex = bytearray()
+        elif byte == b'\x5C' :
+            callback(start+i, _hex, f"POP esp")
             _hex = bytearray()
         elif byte == b'\x5D' :
-            print(f"{start+i:08X}: {_hex.hex():48} POP ebp")
+            callback(start+i, _hex, f"POP ebp")
             _hex = bytearray()
         elif byte == b'\x5E' :
-            print(f"{start+i:08X}: {_hex.hex():48} POP esi")
+            callback(start+i, _hex, f"POP esi")
             _hex = bytearray()
         elif byte == b'\x5F' :
-            print(f"{start+i:08X}: {_hex.hex():48} POP edi")
+            callback(start+i, _hex, f"POP edi")
             _hex = bytearray()
+        elif byte == b'\x66' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x3B' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\xC8' :
+                    callback(start+i, _hex, f"CMP cx ax")
+                    _hex = bytearray()
+                i += 1
+            i += 1
+        elif byte == b'\x68' :
+            read = f.read(4)
+            _hex += read
+            number = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"PUSH {number}")
+            _hex = bytearray()
+            i += 4
+        elif byte == b'\x6A' :
+            read = f.read(1)
+            _hex += read
+            number = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"PUSH {number}")
+            _hex = bytearray()
+            i += 1
         elif byte == b'\x72' :
             read = f.read(1)
             _hex += read
             dist = int.from_bytes(read, byteorder='little', signed=True)
-            print(f"{start+i:08X}: {_hex.hex():48} JB [near] {dist} to {start+i+2+dist:08X}")
+            callback(start+i, _hex, f"JB [near] {dist} to {start+i+2+dist:08X}")
             _hex = bytearray()
             i += 1
         elif byte == b'\x74' :
             read = f.read(1)
             _hex += read
             dist = int.from_bytes(read, byteorder='little', signed=True)
-            print(f"{start+i:08X}: {_hex.hex():48} JE [near] {dist} to {start+i+2+dist:08X}")
+            callback(start+i, _hex, f"JE [near] {dist} to {start+i+2+dist:08X}")
             _hex = bytearray()
             i += 1
         elif byte == b'\x75' :
             read = f.read(1)
             _hex += read
             dist = int.from_bytes(read, byteorder='little', signed=True)
-            print(f"{start+i:08X}: {_hex.hex():48} JNE [near] {dist} to {start+i+2+dist:08X}")
+            callback(start+i, _hex, f"JNE [near] {dist} to {start+i+2+dist:08X}")
             _hex = bytearray()
             i += 1
         elif byte == b'\x76' :
             read = f.read(1)
             _hex += read
             dist = int.from_bytes(read, byteorder='little', signed=True)
-            print(f"{start+i:08X}: {_hex.hex():48} JNA [near] {dist} to {start+i+2+dist:08X}")
+            callback(start+i, _hex, f"JNA [near] {dist} to {start+i+2+dist:08X}")
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\x77' :
+            read = f.read(1)
+            _hex += read
+            dist = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"JA [near] {dist} to {start+i+2+dist:08X}")
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\x7B' :
+            read = f.read(1)
+            _hex += read
+            dist = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"JNP [near] {dist} to {start+i+2+dist:08X}")
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\x7C' :
+            read = f.read(1)
+            _hex += read
+            dist = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"JL [near] {dist} to {start+i+2+dist:08X}")
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\x7D' :
+            read = f.read(1)
+            _hex += read
+            dist = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"JNL [near] {dist} to {start+i+2+dist:08X}")
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\x7E' :
+            read = f.read(1)
+            _hex += read
+            dist = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"JLE [near] {dist} to {start+i+2+dist:08X}")
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\x7F' :
+            read = f.read(1)
+            _hex += read
+            dist = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"JG [near] {dist} to {start+i+2+dist:08X}")
             _hex = bytearray()
             i += 1
         elif byte == b'\x81' :
@@ -134,11 +518,16 @@ def disassembled_view ( f, start, limit = -1 ) :
                 read = f.read(4)
                 _hex += read
                 number = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} CMP ecx, {number}")
+                callback(start+i, _hex, f"CMP ecx, {number}")
                 _hex = bytearray()
                 i += 4
-            else :
-                print(f"{start+i:08X}: {_hex.hex():48}")
+            elif byte == b'\xFA' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"CMP edx, {number}")
+                _hex = bytearray()
+                i += 4
             i += 1
         elif byte == b'\x83' :
             byte = f.read(1)
@@ -150,139 +539,717 @@ def disassembled_view ( f, start, limit = -1 ) :
                 read = f.read(1)
                 _hex += read
                 number2 = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} CMP dword ptr [{number1:08X}], {number2}")
+                callback(start+i, _hex, f"CMP dword ptr [{number1:08X}], {number2}")
                 _hex = bytearray()
                 i += 5
+            elif byte == b'\x65' :
+                read = f.read(1)
+                _hex += read
+                number1 = int.from_bytes(read, byteorder='little', signed=True)
+                read = f.read(1)
+                _hex += read
+                number2 = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"AND dword ptr [ebp+{number1}], {number2}")
+                _hex = bytearray()
+                i += 2
+            elif byte == b'\x7D' :
+                read = f.read(1)
+                _hex += read
+                number1 = int.from_bytes(read, byteorder='little', signed=True)
+                read = f.read(1)
+                _hex += read
+                number2 = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"CMP dword ptr [ebp+{number1}], {number2}")
+                _hex = bytearray()
+                i += 2
+            elif byte == b'\xC4' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"AND esp, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xC6' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"AND esi, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xC7' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"AND edi, {number}")
+                _hex = bytearray()
+                i += 1
             elif byte == b'\xE0' :
                 read = f.read(1)
                 _hex += read
                 number = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} AND eax, {number}")
+                callback(start+i, _hex, f"AND eax, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xE1' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"AND ecx, {number}")
                 _hex = bytearray()
                 i += 1
             elif byte == b'\xE2' :
                 read = f.read(1)
                 _hex += read
                 number = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} AND edx, {number}")
+                callback(start+i, _hex, f"AND edx, {number}")
                 _hex = bytearray()
                 i += 1
             elif byte == b'\xE6' :
                 read = f.read(1)
                 _hex += read
                 number = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} AND esi, {number}")
+                callback(start+i, _hex, f"AND esi, {number}")
                 _hex = bytearray()
                 i += 1
             elif byte == b'\xE7' :
                 read = f.read(1)
                 _hex += read
                 number = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} AND edi, {number}")
+                callback(start+i, _hex, f"AND edi, {number}")
                 _hex = bytearray()
                 i += 1
             elif byte == b'\xE9' :
                 read = f.read(1)
                 _hex += read
                 number = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} SUB ecx, {number}")
+                callback(start+i, _hex, f"SUB ecx, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xEA' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"SUB edx, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xEC' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"SUB esp, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xEE' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"SUB esi, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xEF' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"SUB edi, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xF8' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"CMP eax, {number}")
                 _hex = bytearray()
                 i += 1
             elif byte == b'\xF9' :
                 read = f.read(1)
                 _hex += read
                 number = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} CMP ecx, {number}")
+                callback(start+i, _hex, f"CMP ecx, {number}")
                 _hex = bytearray()
                 i += 1
-            else :
-                print(f"{start+i:08X}: {_hex.hex():48}")
+            elif byte == b'\xFA' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"CMP edx, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xFE' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"CMP esi, {number}")
+                _hex = bytearray()
+                i += 1
+            i += 1
+        elif byte == b'\x84' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xC0' :
+                callback(start+i, _hex, f"TEST al, al")
+                _hex = bytearray()
+            i += 1
+        elif byte == b'\x85' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xC0' :
+                callback(start+i, _hex, f"TEST eax, eax")
+                _hex = bytearray()
+            if byte == b'\xC9' :
+                callback(start+i, _hex, f"TEST ecx, ecx")
+                _hex = bytearray()
+            elif byte == b'\xD2' :
+                callback(start+i, _hex, f"TEST edx, edx")
+                _hex = bytearray()
+            elif byte == b'\xDB' :
+                callback(start+i, _hex, f"TEST ebx, ebx")
+                _hex = bytearray()
+            elif byte == b'\xF6' :
+                callback(start+i, _hex, f"TEST esi, esi")
+                _hex = bytearray()
+            i += 1
+        elif byte == b'\x88' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x07' :
+                callback(start+i, _hex, f"MOV [edi], al")
+                _hex = bytearray()
+            elif byte == b'\x11' :
+                callback(start+i, _hex, f"MOV [ecx], dl")
+                _hex = bytearray()
+            elif byte == b'\x18' :
+                callback(start+i, _hex, f"MOV [eax], bl")
+                _hex = bytearray()
+            elif byte == b'\x47' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"MOV [edi+{number}], al")
+                _hex = bytearray()
+                i += 1
+            i += 1
+        elif byte == b'\x89' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x06' :
+                callback(start+i, _hex, f"MOV [esi], eax")
+                _hex = bytearray()
+            elif byte == b'\x30' :
+                callback(start+i, _hex, f"MOV [eax], esi")
+                _hex = bytearray()
+            elif byte == b'\x44' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\x8F' :
+                    read = f.read(1)
+                    _hex += read
+                    number = int.from_bytes(read, byteorder='little', signed=True)
+                    callback(start+i, _hex, f"MOV [edi+ecx*4+{number}], eax")
+                    _hex = bytearray()
+                    i += 1
+                i += 1
+            elif byte == b'\x45' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"MOV [ebp+{number}], eax")
+                _hex = bytearray()
+                i += 1
+            i += 1
+        elif byte == b'\x8A' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x06' :
+                callback(start+i, _hex, f"MOV al, [esi]")
+                _hex = bytearray()
+            elif byte == b'\x10' :
+                callback(start+i, _hex, f"MOV dl, [eax]")
+                _hex = bytearray()
+            elif byte == b'\x19' :
+                callback(start+i, _hex, f"MOV bl, [ecx]")
+                _hex = bytearray()
+            elif byte == b'\x44' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\x24' :
+                    read = f.read(1)
+                    _hex += read
+                    number = int.from_bytes(read, byteorder='little', signed=True)
+                    callback(start+i, _hex, f"MOV al, [esp+{number}]")
+                    _hex = bytearray()
+                    i += 1
+                i += 1
+            elif byte == b'\x46' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"MOV al, [esi+{number}]")
+                _hex = bytearray()
+                i += 1
             i += 1
         elif byte == b'\x8B' :
             byte = f.read(1)
             _hex += byte
-            if byte == b'\x4D' :
+            if byte == b'\x3D' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"MOV edi, [{number}]")
+                _hex = bytearray()
+                i += 4
+            elif byte == b'\x44' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\x24' :
+                    read = f.read(1)
+                    _hex += read
+                    number = int.from_bytes(read, byteorder='little', signed=True)
+                    callback(start+i, _hex, f"MOV eax, [esp+{number}]")
+                    _hex = bytearray()
+                    i += 1
+                elif byte == b'\x8E' :
+                    read = f.read(1)
+                    _hex += read
+                    number = int.from_bytes(read, byteorder='little', signed=True)
+                    callback(start+i, _hex, f"MOV eax, [esi+ecx*4+{number}]")
+                    _hex = bytearray()
+                    i += 1
+                i += 1
+            elif byte == b'\x45' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"MOV eax, [ebp+{number}]")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x4C' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\x24' :
+                    read = f.read(1)
+                    _hex += read
+                    number = int.from_bytes(read, byteorder='little', signed=True)
+                    callback(start+i, _hex, f"MOV ecx, [esp+{number}]")
+                    _hex = bytearray()
+                    i += 1
+                i += 1
+            elif byte == b'\x4D' :
                 read = f.read(1)
                 _hex += read
                 dist = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} MOV ecx, [ebp + {dist}]")
+                callback(start+i, _hex, f"MOV ecx, [ebp + {dist}]")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x54' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\x24' :
+                    read = f.read(1)
+                    _hex += read
+                    number = int.from_bytes(read, byteorder='little', signed=True)
+                    callback(start+i, _hex, f"MOV edx, [esp+{number}]")
+                    _hex = bytearray()
+                    i += 1
+                i += 1
+            elif byte == b'\x55' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"MOV edx, [ebp+{number}]")
                 _hex = bytearray()
                 i += 1
             elif byte == b'\x75' :
                 read = f.read(1)
                 _hex += read
                 dist = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} MOV esi, [ebp + {dist}]")
+                callback(start+i, _hex, f"MOV esi, [ebp + {dist}]")
                 _hex = bytearray()
                 i += 1
             elif byte == b'\x7D' :
                 read = f.read(1)
                 _hex += read
                 dist = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} MOV edi, [ebp + {dist}]")
+                callback(start+i, _hex, f"MOV edi, [ebp + {dist}]")
                 _hex = bytearray()
                 i += 1
             elif byte == b'\xC1' :
-                print(f"{start+i:08X}: {_hex.hex():48} MOV eax, ecx")
+                callback(start+i, _hex, f"MOV eax, ecx")
+                _hex = bytearray()
+            elif byte == b'\xC3' :
+                callback(start+i, _hex, f"MOV eax, ebx")
+                _hex = bytearray()
+            elif byte == b'\xC6' :
+                callback(start+i, _hex, f"MOV eax, esi")
                 _hex = bytearray()
             elif byte == b'\xC7' :
-                print(f"{start+i:08X}: {_hex.hex():48} MOV eax, edi")
+                callback(start+i, _hex, f"MOV eax, edi")
+                _hex = bytearray()
+            elif byte == b'\xC8' :
+                callback(start+i, _hex, f"MOV ecx, eax")
+                _hex = bytearray()
+            elif byte == b'\xCA' :
+                callback(start+i, _hex, f"MOV ecx, edx")
                 _hex = bytearray()
             elif byte == b'\xD1' :
-                print(f"{start+i:08X}: {_hex.hex():48} MOV edx, ecx")
+                callback(start+i, _hex, f"MOV edx, ecx")
+                _hex = bytearray()
+            elif byte == b'\xD8' :
+                callback(start+i, _hex, f"MOV ebx, eax")
+                _hex = bytearray()
+            elif byte == b'\xDA' :
+                callback(start+i, _hex, f"MOV ebx, eax")
+                _hex = bytearray()
+            elif byte == b'\xDE' :
+                callback(start+i, _hex, f"MOV ebx, esi")
                 _hex = bytearray()
             elif byte == b'\xEC' :
-                print(f"{start+i:08X}: {_hex.hex():48} MOV ebp, esp")
+                callback(start+i, _hex, f"MOV ebx, edx")
                 _hex = bytearray()
-            else :
-                print(f"{start+i:08X}: {_hex.hex():48}")
+            elif byte == b'\xF0' :
+                callback(start+i, _hex, f"MOV esi, eax")
+                _hex = bytearray()
+            elif byte == b'\xF1' :
+                callback(start+i, _hex, f"MOV esi, ecx")
+                _hex = bytearray()
+            elif byte == b'\xF2' :
+                callback(start+i, _hex, f"MOV esi, edx")
+                _hex = bytearray()
+            elif byte == b'\xF8' :
+                callback(start+i, _hex, f"MOV edi, eax")
+                _hex = bytearray()
+            elif byte == b'\xF9' :
+                callback(start+i, _hex, f"MOV edi, ecx")
+                _hex = bytearray()
+            elif byte == b'\xFF' :
+                callback(start+i, _hex, f"nop <2>")
+                _hex = bytearray()
+            i += 1
+        elif byte == b'\x8D' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x04' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\x0A' :
+                    callback(start+i, _hex, f"LEA eax, [edx+ecx]")
+                    _hex = bytearray()
+                elif byte == b'\x8D' :
+                    read = f.read(4)
+                    _hex += read
+                    number = int.from_bytes(read, byteorder='little', signed=True)
+                    callback(start+i, _hex, f"LEA eax, [ecx*4+{number}]")
+                    _hex = bytearray()
+                    i += 4
+                i += 1
+            elif byte == b'\x45' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"LEA eax, [ebp+{number}]")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x49' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"LEA ecx, [ecx+{number}]")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x74' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\x31' :
+                    read = f.read(1)
+                    _hex += read
+                    number = int.from_bytes(read, byteorder='little', signed=True)
+                    callback(start+i, _hex, f"LEA esi, [ecx+esi+{number}]")
+                    _hex = bytearray()
+                    i += 1
+                i += 1
+            elif byte == b'\x7C' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\x39' :
+                    read = f.read(1)
+                    _hex += read
+                    number = int.from_bytes(read, byteorder='little', signed=True)
+                    callback(start+i, _hex, f"LEA edi, [ecx+edi+{number}]")
+                    _hex = bytearray()
+                    i += 1
+                i += 1
+            elif byte == b'\xA4' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\x24' :
+                    read = f.read(4)
+                    _hex += read
+                    number = int.from_bytes(read, byteorder='little', signed=True)
+                    callback(start+i, _hex, f"LEA esp, [esp+{number}]")
+                    _hex = bytearray()
+                    i += 4
+                i += 1
             i += 1
         elif byte == b'\x90' :
-            print(f"{start+i:08X}: {_hex.hex():48} nop")
+            callback(start+i, _hex, f"nop <1>")
             _hex = bytearray()
+        elif byte == b'\x94' :
+            callback(start+i, _hex, f"XCHG eax, esp")
+            _hex = bytearray()
+        elif byte == b'\x9C' :
+            callback(start+i, _hex, f"PUSHFD")
+            _hex = bytearray()
+        elif byte == b'\xA1' :
+            read = f.read(4)
+            _hex += read
+            number = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"MOV eax, [{number}]")
+            _hex = bytearray()
+            i += 4
         elif byte == b'\xA5' :
-            print(f"{start+i:08X}: {_hex.hex():48} MOVSD")
+            callback(start+i, _hex, f"MOVSD")
             _hex = bytearray()
+        elif byte == b'\xA8' :
+            read = f.read(1)
+            _hex += read
+            number = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"TEST al, {number}")
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\xAB' :
+            callback(start+i, _hex, f"STOSD")
+            _hex = bytearray()
+        elif byte == b'\xB8' :
+            read = f.read(4)
+            _hex += read
+            number = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"MOV eax, {number}")
+            _hex = bytearray()
+            i += 4
         elif byte == b'\xBA' :
             read = f.read(4)
             _hex += read
             number = int.from_bytes(read, byteorder='little', signed=True)
-            print(f"{start+i:08X}: {_hex.hex():48} MOB edx, {number}")
+            callback(start+i, _hex, f"MOV edx, {number}")
+            _hex = bytearray()
+            i += 4
+        elif byte == b'\xBE' :
+            read = f.read(4)
+            _hex += read
+            number = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"MOV esi, {number}")
             _hex = bytearray()
             i += 4
         elif byte == b'\xC1' :
             byte = f.read(1)
             _hex += byte
-            if byte == b'\xE9' :
+            if byte == b'\xE0' :
                 read = f.read(1)
                 _hex += read
                 number = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} SHR ecx, {number}")
+                callback(start+i, _hex, f"SHL eax, {number}")
                 _hex = bytearray()
                 i += 1
-            else :
-                print(f"{start+i:08X}: {_hex.hex():48}")
+            elif byte == b'\xE9' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"SHR ecx, {number}")
+                _hex = bytearray()
+                i += 1
             i += 1
-        elif byte == b'\xCC' :
-            print(f"{start+i:08X}: {_hex.hex():48} INT3")
+        elif byte == b'\xC3' :
+            callback(start+i, _hex, f"RET")
             _hex = bytearray()
+        elif byte == b'\xC7' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x00' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"MOV [eax], {number}")
+                _hex = bytearray()
+                i += 5
+            elif byte == b'\x45' :
+                read = f.read(1)
+                _hex += read
+                number1 = int.from_bytes(read, byteorder='little', signed=True)
+                read = f.read(4)
+                _hex += read
+                number2 = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"MOV [ebp+{number1}], {number2}")
+                _hex = bytearray()
+                i += 5
+            i += 1
+        elif byte == b'\xC9' :
+            callback(start+i, _hex, f"LEAVE")
+            _hex = bytearray()
+        elif byte == b'\xCC' :
+            callback(start+i, _hex, f"INT3")
+            _hex = bytearray()
+        elif byte == b'\xD1' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x88' :
+                read = f.read(4)
+                _hex += read
+                offset = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"ROR [eax+{offset:08X}], 1")
+                _hex = bytearray()
+                i += 4
+            elif byte == b'\x8A' :
+                read = f.read(4)
+                _hex += read
+                offset = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"ROR [edx+{offset:08X}], 1")
+                _hex = bytearray()
+                i += 4
+            i += 1
+        elif byte == b'\xD4' :
+            read = f.read(1)
+            _hex += read
+            number = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"AAM {number}") # ascii adjust ax after multiply
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\xD9' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xEE' :
+                callback(start+i, _hex, f"FLDZ")
+                _hex = bytearray()
+            i += 1
+        elif byte == b'\xDB' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x45' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"FILD qword ptr [ebp+{number}]")
+                _hex = bytearray()
+                i += 1
+            i += 1
+        elif byte == b'\xDC' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x05' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"FADD qword ptr [{number:08X}]")
+                _hex = bytearray()
+                i += 4
+            elif byte == b'\x0D' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"FMUL qword ptr [{number:08X}]")
+                _hex = bytearray()
+                i += 4
+            elif byte == b'\x5D' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"FCOMP qword ptr [ebp+{number}]")
+                _hex = bytearray()
+                i += 1
+            i += 1
+        elif byte == b'\xDD' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x05' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"FLD qword ptr [{number}]")
+                _hex = bytearray()
+                i += 4
+            elif byte == b'\x1C' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\x24' :
+                    callback(start+i, _hex, f"FSTP qword ptr [esp]")
+                    _hex = bytearray()
+                i += 1
+            elif byte == b'\x45' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"FLD qword ptr [ebp+{number}]")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x5C' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\x24' :
+                    read = f.read(1)
+                    _hex += read
+                    number = int.from_bytes(read, byteorder='little', signed=True)
+                    callback(start+i, _hex, f"FSTP qword ptr [esp+{number}]")
+                    _hex = bytearray()
+                    i += 1
+                i += 1
+            elif byte == b'\x5D' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"FSTP qword ptr [ebp+{number}]")
+                _hex = bytearray()
+                i += 1
+            i += 1
+        elif byte == b'\xDF' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xE0' :
+                callback(start+i, _hex, f"FNSTSW ax")
+                _hex = bytearray()
+            i += 1
+        elif byte == b'\xE4' :
+            read = f.read(1)
+            _hex += read
+            number = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"IN al, {number}")
+            _hex = bytearray()
+            i += 1
         elif byte == b'\xE8' :
             read = f.read(4)
             _hex += read
             dist = int.from_bytes(read, byteorder='little', signed=True)
-            print(f"{start+i:08X}: {_hex.hex():48} CALL {dist} to {start+i+5+dist:08X}")
+            callback(start+i, _hex, f"CALL {dist} to {start+i+5+dist:08X}")
             _hex = bytearray()
             i += 4
         elif byte == b'\xE9' :
             read = f.read(4)
             _hex += read
             dist = int.from_bytes(read, byteorder='little', signed=True)
-            print(f"{start+i:08X}: {_hex.hex():48} JMP [called near?] {dist} to {start+i+5+dist:08X}")
+            callback(start+i, _hex, f"JMP [called near?] {dist} to {start+i+5+dist:08X}")
             _hex = bytearray()
             i += 4
-        elif byte == b'\xF3' :
-            print(f"{start+i:08X}: {_hex.hex():48} REPE prefix")
+        elif byte == b'\xEB' :
+            read = f.read(1)
+            _hex += read
+            dist = int.from_bytes(read, byteorder='little', signed=True)
+            callback(start+i, _hex, f"JMP [near] {dist} to {start+i+5+dist:08X}")
             _hex = bytearray()
+            i += 1
+        elif byte == b'\xF3' :
+            callback(start+i, _hex, f"REPE prefix")
+            _hex = bytearray()
+        elif byte == b'\xF4' :
+            callback(start+i, _hex, f"HLT")
+            _hex = bytearray()
+        elif byte == b'\xF6' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xC4' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"TEST ah, {number}")
+                _hex = bytearray()
+                i += 1
+            i += 1
         elif byte == b'\xF7' :
             byte = f.read(1)
             _hex += byte
@@ -290,48 +1257,83 @@ def disassembled_view ( f, start, limit = -1 ) :
                 read = f.read(4)
                 _hex += read
                 number = int.from_bytes(read, byteorder='little', signed=True)
-                print(f"{start+i:08X}: {_hex.hex():48} TEST edi, {number}")
+                callback(start+i, _hex, f"TEST edi, {number}")
                 _hex = bytearray()
                 i += 4
-            else :
-                print(f"{start+i:08X}: {_hex.hex():48}")
+            elif byte == b'\xD9' :
+                callback(start+i, _hex, f"NEG ecx")
+                _hex = bytearray()
             i += 1
+        elif byte == b'\xFC' :
+            callback(start+i, _hex, f"CLD")
+            _hex = bytearray()
+        elif byte == b'\xFD' :
+            callback(start+i, _hex, f"STD")
+            _hex = bytearray()
         elif byte == b'\xFF' :
             byte = f.read(1)
             _hex += byte
-            if byte == b'\x24' :
+            if byte == b'\x15' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"CALL dword ptr [{number:08X}]")
+                _hex = bytearray()
+                i += 4
+            elif byte == b'\x24' :
                 byte = f.read(1)
                 _hex += byte
                 if byte == b'\x85' :
                     read = f.read(4)
                     _hex += read
                     offset = int.from_bytes(read, byteorder='little', signed=True)
-                    print(f"{start+i:08X}: {_hex.hex():48} JMP dword ptr [eax*4+{offset:08X}]")
+                    callback(start+i, _hex, f"JMP dword ptr [eax*4+{offset:08X}]")
                     _hex = bytearray()
                     i += 4
                 elif byte == b'\x8D' :
                     read = f.read(4)
                     _hex += read
                     offset = int.from_bytes(read, byteorder='little', signed=True)
-                    print(f"{start+i:08X}: {_hex.hex():48} JMP dword ptr [ecx*4+{offset:08X}]")
+                    callback(start+i, _hex, f"JMP dword ptr [ecx*4+{offset:08X}]")
                     _hex = bytearray()
                     i += 4
                 elif byte == b'\x95' :
                     read = f.read(4)
                     _hex += read
                     offset = int.from_bytes(read, byteorder='little', signed=True)
-                    print(f"{start+i:08X}: {_hex.hex():48} JMP dword ptr [edx*4+{offset:08X}]")
+                    callback(start+i, _hex, f"JMP dword ptr [edx*4+{offset:08X}]")
                     _hex = bytearray()
                     i += 4
-                else :
-                    print(f"{start+i:08X}: {_hex.hex():48}")
                 i += 1
-            else :
-                print(f"{start+i:08X}: {_hex.hex():48}")
+            elif byte == b'\x35' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"PUSH [{number}]")
+                _hex = bytearray()
+                i += 4
+            elif byte == b'\x55' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"CALL dword ptr [ebp+{number}]")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x75' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                callback(start+i, _hex, f"PUSH [ebp+{number}]")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xD7' :
+                callback(start+i, _hex, f"CALL edi")
+                _hex = bytearray()
             i += 1
-        else :
-            print(f"{start+i:08X}: {_hex.hex():48}")
         i += 1
+
+        if len(_hex) != 0 :
+            callback(start+i, _hex, f"UNKNOWN")
             
         
 
@@ -575,6 +1577,6 @@ for file in stream_dir_exe_gen() :
             if AddressOfEntryPoint >= VirtualAddress and AddressOfEntryPoint <= VirtualAddress+VirtualSize :
                 EntryPoint = AddressOfEntryPoint-VirtualAddress+PointerToRawData
                 print(f"> Found Entrypoint {EntryPoint:X} in section '{Name}' ({VirtualAddress}-{VirtualAddress+VirtualSize})")
-                disassembled_view(f,EntryPoint,200)
+                disassembled_view(f,EntryPoint,opcode_print,3000)
         print()
         break
