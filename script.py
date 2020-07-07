@@ -1,4 +1,4 @@
-from disassembler import disassemble_x64
+import os
 
 def hexview_line_gen ( f, start, limit = -1 ) :
     f.seek(start)
@@ -193,22 +193,60 @@ def read_bytes ( f, start, size, printtext = "" ) :
         print(f"Reading '{printtext}' at [{start}, {size}]: {read}")
     return read
 
-def print_pe ( f ) :
-    NumberOfSections = read_int(f, 206, 2)
-    AddressOfEntryPoint = read_int(f, 240, 4)
+def stream_dir_exe_gen () :
+    for dir in [
+        "C:/Program Files (x86)/Steam/steamapps/common/",
+        "E:/SteamLibrary/steamapps/common/",
+        "F:/SteamLibrary/steamapps/common/",
+    ] :
+        for subdir in os.scandir(dir) :
+            if not subdir.is_dir() :
+                continue
+            for file in os.scandir(subdir) :
+                if not file.name.endswith(".exe") :
+                    continue
+                yield file
 
-    for i in range(NumberOfSections) :
-        VirtualSize = read_int(f,464+40*i+8,4)
-        VirtualAddress = read_int(f,464+40*i+12,4)
-        PointerToRawData = read_int(f,464+40*i+20,4)
-        
-        print(f"Found section '{read_bytes(f,464+40*i,8)}' ({VirtualAddress}-{VirtualAddress+VirtualSize})")
+for file in stream_dir_exe_gen() :
+    print(f"{file.path}")
+    with open(file, "rb") as f:
+        e_magic = read_bytes(f, 0, 2)
+        if e_magic != b'MZ' :
+            print(f"File {file.path} does not have a valid MS-DOS Header Magic Number")
+            continue
+        e_lfanew = read_int(f, 60, 4)
+        PESignature = read_bytes(f, e_lfanew, 4)
+        if PESignature != b'PE\x00\x00' :
+            print(f"File {file.path} does not have a valid PE Header Signature")
+            continue
+        Machine = read_int(f, e_lfanew+4, 2)
+        OptionalHeaderSignature = read_int(f, e_lfanew+24, 2)
+        NumberOfSections = read_int(f, e_lfanew+4+2, 2, "NumberOfSections")
+        AddressOfEntryPoint = read_int(f, e_lfanew+4+20+16, 4, "AddressOfEntryPoint")
+        if Machine == 0x14c and OptionalHeaderSignature == 0x010b: # I386 PE32
+            print("I386 PE32")
+            for i in range(NumberOfSections) :
+                VirtualSize = read_int(f,e_lfanew+4+20+96+128+40*i+8, 4,)
+                VirtualAddress = read_int(f,e_lfanew+4+20+96+128+40*i+12,4)
+                SizeOfRawData = read_int(f,e_lfanew+4+20+96+128+40*i+16,4)
+                PointerToRawData = read_int(f,e_lfanew+4+20+96+128+40*i+20,4)
 
-        if AddressOfEntryPoint >= VirtualAddress and AddressOfEntryPoint <= VirtualAddress+VirtualSize :
-            EntryPoint = AddressOfEntryPoint-VirtualAddress+PointerToRawData
-            print(f"Found Entrypoint {EntryPoint:X}")
-            hexview_line_gen(f,EntryPoint,100)
 
-with open("E:/SteamLibrary/steamapps/common/Monster Hunter World/MonsterHunterWorld.exe", "rb") as f:
-    print_pe(f)
-    disassemble_x64(f,0x24F52C20,100)
+                if AddressOfEntryPoint >= VirtualAddress and AddressOfEntryPoint <= VirtualAddress+VirtualSize :
+                    EntryPoint = AddressOfEntryPoint-VirtualAddress+PointerToRawData
+                    print(f"Found Entrypoint {EntryPoint:X} in section '{read_bytes(f,e_lfanew+4+20+96+128+40*i,8)}' ({VirtualAddress}-{VirtualAddress+VirtualSize})")
+                # hexview_line_gen(f,EntryPoint,100)
+        elif Machine == 0x8664 and OptionalHeaderSignature == 0x020b: # AMD64 PE32+
+            print("AMD64 PE32+")
+            for i in range(NumberOfSections) :
+                VirtualSize = read_int(f,e_lfanew+4+20+112+128+40*i+8,4)
+                VirtualAddress = read_int(f,e_lfanew+4+20+112+128+40*i+12,4)
+                SizeOfRawData = read_int(f,e_lfanew+4+20+112+128+40*i+16,4)
+                PointerToRawData = read_int(f,e_lfanew+4+20+112+128+40*i+20,4)
+
+                if AddressOfEntryPoint >= VirtualAddress and AddressOfEntryPoint <= VirtualAddress+VirtualSize :
+                    EntryPoint = AddressOfEntryPoint-VirtualAddress+PointerToRawData
+                    print(f"Found Entrypoint {EntryPoint:X} in section '{read_bytes(f,e_lfanew+4+20+112+128+40*i,8)}' ({VirtualAddress}-{VirtualAddress+VirtualSize})")
+                # hexview_line_gen(f,EntryPoint,100)
+        else :
+            print(f"Unknown {Machine}:{OptionalHeaderSignature}")
