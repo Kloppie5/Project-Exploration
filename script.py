@@ -26,6 +26,315 @@ def hexview_line_gen ( f, start, limit = -1 ) :
         
         i += 16
 
+def disassembled_view ( f, start, limit = -1 ) :
+    f.seek(start)
+    i = 0
+
+    _hex = bytearray()
+
+    while 1:
+        if limit != -1 and i > limit:
+            print(f"{start+i:08X}: {_hex.hex():48}")
+            return
+        
+        byte = f.read(1)
+        if not byte:
+            print(f"{start+i:08X}: {_hex.hex():48}")
+            return
+
+        _hex += byte
+
+        if byte == b'\x03' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xC6' :
+                print(f"{start+i:08X}: {_hex.hex():48} ADD eax, esi")
+                _hex = bytearray()
+            elif byte == b'\xC8' :
+                print(f"{start+i:08X}: {_hex.hex():48} ADD ecx, eax")
+                _hex = bytearray()
+            else :
+                print(f"{start+i:08X}: {_hex.hex():48}")
+            i += 1
+        elif byte == b'\x0F' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x82' :
+                read = f.read(4)
+                _hex += read
+                dist = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} JB [far] {dist} to {start+i+6+dist:08X}")
+                _hex = bytearray()
+                i += 4
+            else :
+                print(f"{start+i:08X}: {_hex.hex():48}")
+            i += 1
+        elif byte == b'\x3B' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xF8' :
+                print(f"{start+i:08X}: {_hex.hex():48} CMP edi, eax")
+                _hex = bytearray()
+            elif byte == b'\xFE' :
+                print(f"{start+i:08X}: {_hex.hex():48} CMP edi, esi")
+                _hex = bytearray()
+            else :
+                print(f"{start+i:08X}: {_hex.hex():48}")
+            i += 1
+        elif byte == b'\x55' :
+            print(f"{start+i:08X}: {_hex.hex():48} PUSH ebp")
+            _hex = bytearray()
+        elif byte == b'\x56' :
+            print(f"{start+i:08X}: {_hex.hex():48} PUSH esi")
+            _hex = bytearray()
+        elif byte == b'\x57' :
+            print(f"{start+i:08X}: {_hex.hex():48} PUSH edi")
+            _hex = bytearray()
+        elif byte == b'\x5D' :
+            print(f"{start+i:08X}: {_hex.hex():48} POP ebp")
+            _hex = bytearray()
+        elif byte == b'\x5E' :
+            print(f"{start+i:08X}: {_hex.hex():48} POP esi")
+            _hex = bytearray()
+        elif byte == b'\x5F' :
+            print(f"{start+i:08X}: {_hex.hex():48} POP edi")
+            _hex = bytearray()
+        elif byte == b'\x72' :
+            read = f.read(1)
+            _hex += read
+            dist = int.from_bytes(read, byteorder='little', signed=True)
+            print(f"{start+i:08X}: {_hex.hex():48} JB [near] {dist} to {start+i+2+dist:08X}")
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\x74' :
+            read = f.read(1)
+            _hex += read
+            dist = int.from_bytes(read, byteorder='little', signed=True)
+            print(f"{start+i:08X}: {_hex.hex():48} JE [near] {dist} to {start+i+2+dist:08X}")
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\x75' :
+            read = f.read(1)
+            _hex += read
+            dist = int.from_bytes(read, byteorder='little', signed=True)
+            print(f"{start+i:08X}: {_hex.hex():48} JNE [near] {dist} to {start+i+2+dist:08X}")
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\x76' :
+            read = f.read(1)
+            _hex += read
+            dist = int.from_bytes(read, byteorder='little', signed=True)
+            print(f"{start+i:08X}: {_hex.hex():48} JNA [near] {dist} to {start+i+2+dist:08X}")
+            _hex = bytearray()
+            i += 1
+        elif byte == b'\x81' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xF9' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} CMP ecx, {number}")
+                _hex = bytearray()
+                i += 4
+            else :
+                print(f"{start+i:08X}: {_hex.hex():48}")
+            i += 1
+        elif byte == b'\x83' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x3D' :
+                read = f.read(4)
+                _hex += read
+                number1 = int.from_bytes(read, byteorder='little', signed=True)
+                read = f.read(1)
+                _hex += read
+                number2 = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} CMP dword ptr [{number1:08X}], {number2}")
+                _hex = bytearray()
+                i += 5
+            elif byte == b'\xE0' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} AND eax, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xE2' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} AND edx, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xE6' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} AND esi, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xE7' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} AND edi, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xE9' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} SUB ecx, {number}")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xF9' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} CMP ecx, {number}")
+                _hex = bytearray()
+                i += 1
+            else :
+                print(f"{start+i:08X}: {_hex.hex():48}")
+            i += 1
+        elif byte == b'\x8B' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x4D' :
+                read = f.read(1)
+                _hex += read
+                dist = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} MOV ecx, [ebp + {dist}]")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x75' :
+                read = f.read(1)
+                _hex += read
+                dist = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} MOV esi, [ebp + {dist}]")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\x7D' :
+                read = f.read(1)
+                _hex += read
+                dist = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} MOV edi, [ebp + {dist}]")
+                _hex = bytearray()
+                i += 1
+            elif byte == b'\xC1' :
+                print(f"{start+i:08X}: {_hex.hex():48} MOV eax, ecx")
+                _hex = bytearray()
+            elif byte == b'\xC7' :
+                print(f"{start+i:08X}: {_hex.hex():48} MOV eax, edi")
+                _hex = bytearray()
+            elif byte == b'\xD1' :
+                print(f"{start+i:08X}: {_hex.hex():48} MOV edx, ecx")
+                _hex = bytearray()
+            elif byte == b'\xEC' :
+                print(f"{start+i:08X}: {_hex.hex():48} MOV ebp, esp")
+                _hex = bytearray()
+            else :
+                print(f"{start+i:08X}: {_hex.hex():48}")
+            i += 1
+        elif byte == b'\x90' :
+            print(f"{start+i:08X}: {_hex.hex():48} nop")
+            _hex = bytearray()
+        elif byte == b'\xA5' :
+            print(f"{start+i:08X}: {_hex.hex():48} MOVSD")
+            _hex = bytearray()
+        elif byte == b'\xBA' :
+            read = f.read(4)
+            _hex += read
+            number = int.from_bytes(read, byteorder='little', signed=True)
+            print(f"{start+i:08X}: {_hex.hex():48} MOB edx, {number}")
+            _hex = bytearray()
+            i += 4
+        elif byte == b'\xC1' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xE9' :
+                read = f.read(1)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} SHR ecx, {number}")
+                _hex = bytearray()
+                i += 1
+            else :
+                print(f"{start+i:08X}: {_hex.hex():48}")
+            i += 1
+        elif byte == b'\xCC' :
+            print(f"{start+i:08X}: {_hex.hex():48} INT3")
+            _hex = bytearray()
+        elif byte == b'\xE8' :
+            read = f.read(4)
+            _hex += read
+            dist = int.from_bytes(read, byteorder='little', signed=True)
+            print(f"{start+i:08X}: {_hex.hex():48} CALL {dist} to {start+i+5+dist:08X}")
+            _hex = bytearray()
+            i += 4
+        elif byte == b'\xE9' :
+            read = f.read(4)
+            _hex += read
+            dist = int.from_bytes(read, byteorder='little', signed=True)
+            print(f"{start+i:08X}: {_hex.hex():48} JMP [called near?] {dist} to {start+i+5+dist:08X}")
+            _hex = bytearray()
+            i += 4
+        elif byte == b'\xF3' :
+            print(f"{start+i:08X}: {_hex.hex():48} REPE prefix")
+            _hex = bytearray()
+        elif byte == b'\xF7' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\xC7' :
+                read = f.read(4)
+                _hex += read
+                number = int.from_bytes(read, byteorder='little', signed=True)
+                print(f"{start+i:08X}: {_hex.hex():48} TEST edi, {number}")
+                _hex = bytearray()
+                i += 4
+            else :
+                print(f"{start+i:08X}: {_hex.hex():48}")
+            i += 1
+        elif byte == b'\xFF' :
+            byte = f.read(1)
+            _hex += byte
+            if byte == b'\x24' :
+                byte = f.read(1)
+                _hex += byte
+                if byte == b'\x85' :
+                    read = f.read(4)
+                    _hex += read
+                    offset = int.from_bytes(read, byteorder='little', signed=True)
+                    print(f"{start+i:08X}: {_hex.hex():48} JMP dword ptr [eax*4+{offset:08X}]")
+                    _hex = bytearray()
+                    i += 4
+                elif byte == b'\x8D' :
+                    read = f.read(4)
+                    _hex += read
+                    offset = int.from_bytes(read, byteorder='little', signed=True)
+                    print(f"{start+i:08X}: {_hex.hex():48} JMP dword ptr [ecx*4+{offset:08X}]")
+                    _hex = bytearray()
+                    i += 4
+                elif byte == b'\x95' :
+                    read = f.read(4)
+                    _hex += read
+                    offset = int.from_bytes(read, byteorder='little', signed=True)
+                    print(f"{start+i:08X}: {_hex.hex():48} JMP dword ptr [edx*4+{offset:08X}]")
+                    _hex = bytearray()
+                    i += 4
+                else :
+                    print(f"{start+i:08X}: {_hex.hex():48}")
+                i += 1
+            else :
+                print(f"{start+i:08X}: {_hex.hex():48}")
+            i += 1
+        else :
+            print(f"{start+i:08X}: {_hex.hex():48}")
+        i += 1
+            
+        
+
 LAYOUT_DOS_HEADER = [
     {"name": "e_magic",    "start":  0, "size":  2},
     {"name": "e_cblp",     "start":  2, "size":  2},
@@ -181,7 +490,7 @@ LAYOUT_PE32_PLUS = [
 
 def read_int ( f, start, size, printtext = "" ) :
     f.seek(start)
-    read = int.from_bytes(f.read(size), byteorder='little')
+    read = int.from_bytes(f.read(size), byteorder='little', signed=True)
     if printtext != "" :
         print(f"Reading '{printtext}' at [{start}, {size}]: {read}")
     return read
@@ -266,5 +575,6 @@ for file in stream_dir_exe_gen() :
             if AddressOfEntryPoint >= VirtualAddress and AddressOfEntryPoint <= VirtualAddress+VirtualSize :
                 EntryPoint = AddressOfEntryPoint-VirtualAddress+PointerToRawData
                 print(f"> Found Entrypoint {EntryPoint:X} in section '{Name}' ({VirtualAddress}-{VirtualAddress+VirtualSize})")
-                # hexview_line_gen(f,EntryPoint,100)
+                disassembled_view(f,EntryPoint,200)
         print()
+        break
