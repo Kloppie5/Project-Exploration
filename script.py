@@ -66,7 +66,6 @@ def Register ( type, ref ) -> str :
         ["r15l", "r15w", "r15d", "r15", "-",   "mmx7", "xmm15", "ymm15", "-",  "cr15", "dr15"]
     ][ref][type]
 
-
 def disassembled_view ( f, start, callback, limit = -1 ) :
     f.seek(start)
     i = 0
@@ -83,48 +82,192 @@ def disassembled_view ( f, start, callback, limit = -1 ) :
             callback(start+i, _hex)
             return
 
+        byte = ord(byte)
+
+
         # 0F 0000 1111
         #  A0:p   1010 000p       | PUSH/POP FS
         #  A8:p   1010 100p       | PUSH/POP GS
-        # 00:ds   0000 00ds modrm | ADD
-        # 04:s    0000 010s       | acc ADD
-        # 06:p    0000 011p       | PUSH/POP ES
-        # 08:ds   0000 10ds       | OR
-        # 0C:s    0000 110s       | acc OR
-        # 0E      0000 1110       | PUSH CS (no POP)
-        # 10:ds   0001 00ds modrm | ADC
-        # 14:s    0001 010s       | acc ADC
-        # 16:p    0001 011p       | PUSH/POP SS
-        # 1E:p    0001 111p       | PUSH/POP DS
-        # 20:ds   0010 00ds modrm | AND
-        # 24:s    0010 010s       | acc AND
-        # 28:ds   0010 10ds modrm | SUB
-        # 2C:s    0010 110s       | acc SUB
-        # 30:ds   0010 00ds       | XOR
-        # 34:s    0010 010s       | acc XOR 
-        # 38:ds   0011 10ds modrm | CMP
-        # 3C:s    0011 110s       | acc CMP
-        # 40:reg  0100 0---       | INC reg
-        # 48:reg  0100 1---       | DEC reg
-        # 50:reg  0101 0---       | PUSH reg
-        # 58:reg  0101 1---       | POP reg
-        # 68:~s-  0110 10s0       | PUSH const
-        # 80:xs   1000 00xs modrm | immediate
-        # 80:xs/0           r000  | ^ ADD const
-        # 80:xd/1           r001  | ^ OR const
-        # 80:xs/2           r010  | ^ ADC const
-        # 80:xs/4           r100  | ^ AND const
-        # 80:xs/5           r101  | ^ SUB const
-        # 80:xs/6           r110  | ^ XOR const
-        # 80:xs/7           r111  | ^ CMP const
-        # 84:s    1000 010s       | TEST
-        # 88:ds   1000 10ds modrm | MOV
+
+
+
+
+
+        # 00-07: ADD, ES
+            # 00:ds   00 0 00 0ds       | ADD
+            # 04:s    00 0 00 10s       | acc ADD
+            # 06      00 0 00 11p       | PUSH ES
+            # 07      00 0 00 111       | POP ES
+        # 08-0F: OR, CS
+            # 08:ds   00 0 01 0ds       | OR
+            # 0C:s    00 0 01 10s       | acc OR
+            # 0E      00 0 01 110       | PUSH CS
+            # 0F      0000 1111         | Instruction set switch
+        # 10-17: ADC, SS
+            # 10:ds   00 0 10 0ds       | ADC
+            # 14:s    00 0 10 10s       | acc ADC
+            # 16      00 0 10 11p       | PUSH SS
+            # 17      00 0 10 111       | POP SS
+        # 18-1F: SBB, DS
+            # 18:ds   00 0 11 0ds       | SBB
+            # 1C:s    00 0 11 10s       | acc SSB
+            # 1E      00 0 11 11p       | PUSH DS
+            # 1F      00 0 11 111       | POP DS
+        # 20-27: AND, ESo DDA
+            # 20:ds   00 1 00 0ds       | AND
+            # 24:s    00 1 00 10s       | acc AND
+            # 26      00 1 00 110       | ES override
+            # 27      00 1 00 111       | DAA AL
+        # 28-2F: SUB, CSo DAS
+            # 28:ds   00 1 01 0ds       | SUB
+            # 2C:s    00 1 01 10s       | acc SUB
+            # 2E      00 1 01 110       | CS override
+            # 2F      00 1 01 111       | DAS AL
+        # 30-37: XOR, SSo AAA
+            # 30:ds   00 1 10 0ds       | XOR
+            # 34:s    00 1 10 10s       | acc XOR
+            # 36      00 1 10 110       | SS override
+            # 37      00 1 10 111       | AAA AL
+        # 38-3F: CMP, DSo AAS
+            # 38:ds   00 1 11 0ds       | CMP
+            # 3C:s    00 1 11 10s       | acc CMP
+            # 3E      00 1 11 110       | DS override 
+            # 3F      00 1 11 111       | AAS AL
+        # 40-5F: reg operations
+            # 40:reg  010 00 reg        | INC reg
+            # 48:reg  010 01 reg        | DEC reg
+            # 50:reg  010 10 reg        | PUSH reg
+            # 58:reg  010 11 reg        | POP reg
+        # 60-67
+            # 60      011000 00         | PUSHA
+            # 61      011000 01         | POPA
+            # 62      011000 10         | BOUND
+            # 63      011000 11         | ARPL
+        # 64-67: Prefixes
+            # 64      011001 00         | FS override
+            # 65      011001 01         | GS override
+            # 66      011001 10         | Operand-size override
+            # 67      011001 11         | Address-size override
+        # 68-6B
+            # 68:~s-  011010 s0         | PUSH const
+            # 69:~s-  011010 s1         | IMUL const
+        # 6C-6F: Port IO
+            # 6C:s    011011 0 s        | INS
+            # 6E:s    011011 1 s        | OUTS
+        # 70-7F: Jumps
+        	# 70      0111 0000         | JO          (OF=1)
+            # 71      0111 0001         | JNO         (OF=0)
+            # 72      0111 0010         | JB JNAE JC  (CF=1)			
+            # 73      0111 0011         | JNB JAE JNC (CF=0)
+            # 74      0111 0100         | JZ JE       (ZF=1)
+            # 75      0111 0101         | JNZ JNE     (ZF=0)
+            # 76      0111 0110         | JBE JNA     (CF=1  OR ZF=1)
+            # 77      0111 0111         | JNBE JA     (CF=0 AND ZF=0)
+            # 78      0111 1000         | JS          (SF=1)
+            # 79      0111 1001         | JNS         (SF=0)
+            # 7A      0111 1010         | JP JPE      (PF=1)
+            # 7B      0111 1011         | JNP JPO     (PF=0)
+            # 7C      0111 1100         | JL JNGE     (SF!=OF)
+            # 7D      0111 1101         | JNL JGE     (SF=OF)
+            # 7E      0111 1110         | JLE JNG     ((ZF=1) OR (SF!=OF))
+            # 7F      0111 1111         | JNLE JG     ((ZF=0) AND (SF=OF))
+        # 80-83: Immediate
+            # 80:xs/0 100000 xs r000   | ADD const
+            # 80:xd/1 100000 xs r001   | OR const
+            # 80:xs/2 100000 xs r010   | ADC const
+            # 80:xs/3 100000 xs r011   | SBB const
+            # 80:xs/4 100000 xs r100   | AND const
+            # 80:xs/5 100000 xs r101   | SUB const
+            # 80:xs/6 100000 xs r110   | XOR const
+            # 80:xs/7 100000 xs r111   | CMP const
+
+        # 84:s    1000010 s       | TEST
+        # 86:s    1000011 s       | XCHG
+        # 88:ds   100010 ds       | MOV
         # 8C:d-   1000 11d0       | MOV segreg
+        # 8D      1000 1101       | LEA
         # 8F/0    1000 1111 r000  | POP reg
-        # A0:ds   1010 00ds modrm | acc MOV offset
+        # 90:reg  10010 reg       | XCHG reg
+
+        # 98 CBW
+        # 99 CWD
+        # 9A CALLF
+        # 9B WAIT
+        # 9C PUSHF
+        # 9D POPF
+        # 9E SAHF
+        # 9F LAHF
+
+        # A0:ds   1010 00ds  | acc MOV offset
+
+        # A4:s    1010 010s       | MOVS
+        # A6:s    1010 011s       | CMPS
         # A8:s    1010 100s       | acc TEST
-        # Bs:reg  1011 s---       | MOV reg
+        # AA:s    1010 101s       | STOS
+        # AC:s    1010 110s       | LODS
+        # AE:s    1010 111s       | SCAS
+
+        # Bs:reg  1011 s reg      | MOV reg
+
+        # C0:s/0  1100 000s r000  | ROL
+        # C0:s/1  1100 000s r001  | ROR
+        # C0:s/2  1100 000s r010  | RCL
+        # C0:s/3  1100 000s r011  | RCR
+        # C0:s/4  1100 000s r100  | SHL
+        # C0:s/5  1100 000s r101  | SHR
+        # C0:s/6  1100 000s r110  | SAL
+        # C0:s/7  1100 000s r111  | SAR
+
+        # C2 RET var
+        # C3 RET
+
+        # C4 LES
+        # C5 LDS
+
         # C6:s/0  1100 011s r000  | MOV const
+
+        # C8 ENTER
+        # C9 LEAVE
+
+        # CA RETF var
+        # CB RETF
+        # CC INT3
+        # CD INT
+        # CE INTO
+        # CD IRET
+
+        # D0:xs/0 1101 00xs r000  | ROL 1/x
+        # D0:xs/1 1101 00xs r001  | ROR 1/x
+        # D0:xs/2 1101 00xs r010  | RCL 1/x
+        # D0:xs/3 1101 00xs r011  | RCR 1/x
+        # D0:xs/4 1101 00xs r100  | SHL 1/x
+        # D0:xs/5 1101 00xs r101  | SHR 1/x
+        # D0:xs/6 1101 00xs r110  | SAL 1/x
+        # D0:xs/7 1101 00xs r111  | SAR 1/x
+
+        # D4 AMX
+        # D5 ADX
+        # D6 SALC
+        # D7 XLAT
+        # D8/0 FADD
+        # D8/1 FMUL
+        # D8/2 FCOM
+        # D8/3 FCOMP
+        # D8/4 FSUB
+        # D8/5 FSUBR
+        # D8/6 FDIV
+        # D8/7 FDIVR
+
+        # D9/0 FLD
+        # D9/1 FXCH
+        # D9/2 FST
+        # D9/3 FSTP
+        # D9/4 FLDENV
+        # D9/5 FLDCW
+        # D9/6 FNSTENV
+        # D9/7 FSTCW
+
+
         # F6:s/0  1111 011s r000  | TEST
         # F6:s/2  1111 011s r010  | NOT
         # F6:s/3  1111 011s r011  | NEG
