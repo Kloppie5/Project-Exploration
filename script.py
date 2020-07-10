@@ -261,18 +261,18 @@ class Disassembler_x86:
                 # 7F      0111 1111         | JNLE JG     ((ZF=0) AND (SF=OF))
                     self.UNKNOWN_OPCODE,        # 7F
             # 80-83: Immediate
-                # 80:xs/0 100000 xs r000   | ADD const
-                # 80:xd/1 100000 xs r001   | OR const
-                # 80:xs/2 100000 xs r010   | ADC const
-                # 80:xs/3 100000 xs r011   | SBB const
-                # 80:xs/4 100000 xs r100   | AND const
-                # 80:xs/5 100000 xs r101   | SUB const
-                # 80:xs/6 100000 xs r110   | XOR const
-                # 80:xs/7 100000 xs r111   | CMP const
-                    self.UNKNOWN_OPCODE,        # 80
-                    self.UNKNOWN_OPCODE,        # 81
-                    self.UNKNOWN_OPCODE,        # 82
-                    self.UNKNOWN_OPCODE,        # 83
+                # 80:xs/0 100000 xs r000    | ADD const
+                # 80:xs/1 100000 xs r001    | OR const
+                # 80:xs/2 100000 xs r010    | ADC const
+                # 80:xs/3 100000 xs r011    | SBB const
+                # 80:xs/4 100000 xs r100    | AND const
+                # 80:xs/5 100000 xs r101    | SUB const
+                # 80:xs/6 100000 xs r110    | XOR const
+                # 80:xs/7 100000 xs r111    | CMP const
+                    self.IMMEDIATE,             # 80
+                    self.IMMEDIATE,             # 81
+                    self.IMMEDIATE,             # 82
+                    self.IMMEDIATE,             # 83
 
                 # 84:s    1000010 s       | TEST
                     self.UNKNOWN_OPCODE,        # 84
@@ -514,7 +514,7 @@ class Disassembler_x86:
 
             self.parsetable[byte](byte)
 
-    def SPLIT233 ( self ) -> (int, int, int) :
+    def SPLIT233 ( self ) -> (int, int, int, int) :
         byte = self.stream.read(1)
         if not byte:
             print("SPLIT233 ran out of stream")
@@ -525,14 +525,14 @@ class Disassembler_x86:
         s = (byte & 0b00111000) >> 3
         t =  byte & 0b00000111
 
-        return f, s, t
+        return f, s, t, byte
 
-    def MODRM ( self, s ) -> (str, str, str) :
+    def MODRM ( self, s ) -> (int, int, int, int, str, str, str) :
         regfield = ""
         rmfield = ""
 
-        mod, reg, rm = self.SPLIT233()
-        hex =  f"[{mod:02b} {reg:03b} {rm:03b}]"
+        mod, reg, rm, byte = self.SPLIT233()
+        hex = f" {byte:02X}[{mod:02b} {reg:03b} {rm:03b}]"
 
         if s == 0 :
             regfield = self.REGISTER8BIT[reg]
@@ -549,7 +549,7 @@ class Disassembler_x86:
         else :
             rmloc = ""
             if rm == 0b100 : # SIB mode
-                rmloc, sibhex = self.SIB(mod)
+                scale, index, base, sibbyte, rmloc, sibhex = self.SIB(mod)
                 hex += sibhex
             else :
                 rmloc = self.REGISTER32BIT[rm]
@@ -558,93 +558,108 @@ class Disassembler_x86:
             if mod == 0b01 : # one-byte displacement mode
                 disp8 = int.from_bytes(self.stream.read(1), byteorder='little', signed=True)
                 self.pos += 1
-                hex += f" {disp8:02X}"
+                hex += f" {disp8 &0xFF:02X}"
                 offset = f"{disp8:+02X}"
             elif mod == 0b10 : # four-byte displacement mode
                 disp32 = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
                 self.pos += 4
-                hex += f" {disp32:08X}"
+                hex += f" {disp32 &0xFFFFFFFF:08X}"
                 offset = f"{disp32:+08X}"
             
             rmfield = f"[{rmloc}{offset}]"
         
-        return regfield, rmfield, hex
+        return mod, reg, rm, byte, regfield, rmfield, hex
 
-    def SIB ( self, mod ) -> (str, str) :
+    def SIB ( self, mod ) -> (int, int, int, int, str, str) :
         rmloc = ""
 
-        scale, index, base = self.SPLIT233()
-        hex = f" [{scale:02b} {index:03b} {base:03b}]"
+        scale, index, base, byte = self.SPLIT233()
+        hex = f" {byte:02X}[{scale:02b} {index:03b} {base:03b}]"
 
         scaledindex = f"{self.REGISTER32BIT[index]}*{1<<scale}"
         if mod == 0b00 and base == 0b101 :
             if mod == 0b00 : # displacement-only mode
                 disp32 = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
                 self.pos += 4
-                hex += f" {disp32:08X}"
+                hex += f" {disp32 &0xFFFFFFFF:08X}"
                 rmloc = disp32
             else :
                 rmloc = scaledindex
         else :
             rmloc = f"{self.REGISTER32BIT[base]}+{scaledindex}"
         
-        return rmloc, hex
+        return scale, index, base, byte, rmloc, hex
 
     def UNKNOWN_OPCODE ( self, byte ) :
         # print(f"Unknown opcode: {byte:02X}")
         self.pos += 1
     
-    def ADD ( self, byte ) :
+    def ADD ( self, byte ) :        # 00:ds     modrm
         address = f"{self.pos:08X}"
         self.pos += 1
 
         d = (byte & 0b00000010) >> 1 # 0: add reg to r/m, 1: add r/m to reg
         s =  byte & 0b00000001       # 0: 8-bit,          1: 16- or 32-bit
 
-        regfield, rmfield, modrmhex = self.MODRM(s)
+        mod, reg, rm, byte, regfield, rmfield, modrmhex = self.MODRM(s)
 
-        hex = f"00:{d}{s}{modrmhex}"
+        hex = f"00:{d}{s}  {modrmhex}"
             
         text = ""
-        if d == 0b0 :
+        if d == 0 :
             text = f"ADD {rmfield}, {regfield}"
         else :
             text = f"ADD {regfield}, {rmfield}"
         
         print(f"{address:8}: {hex:50} {text}")
-
-    def CALL ( self, byte ) :
-        # E8 rel16/32
+    def CALL ( self, byte ) :       # E8        rel16/32
         address = f"{self.pos:08X}"
         self.pos += 1
 
         dist = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
         self.pos += 4
         
-        hex = f"E8 {dist:08X}"
+        hex = f"E8      {dist:08X}"
         text = f"CALL {dist} to {self.pos+dist:08X}"
 
         print(f"{address:8}: {hex:50} {text}")
+    def IMMEDIATE ( self, byte ) :  # 80:xs/r   modrm
+        address = f"{self.pos:08X}"
+        self.pos += 1
 
+        x = (byte & 0b00000010) >> 1
+        s =  byte & 0b00000001
+
+        mod, reg, rm, byte, regfield, rmfield, modrmhex = self.MODRM(s)
+        
+        hex =  f"80:{x}{s}/{reg}{modrmhex}"
+            
+        op = ["ADD", "OR", "ADC", "SBB", "AND", "SUB", "XOR", "CMP"][reg]
+
+        constant = 0
+        if s == 0 :
+            const8 = int.from_bytes(self.stream.read(1), byteorder='little', signed=True)
+            self.pos += 1
+            hex += f" {const8 &0xFF:02X}"
+            constant = const8
+        elif x == 1 :
+            const32 = int.from_bytes(self.stream.read(1), byteorder='little', signed=True) # sign-extended
+            self.pos += 1
+            hex += f" {const32 &0xFF:02X}"
+            constant = const32
+        else :
+            const32 = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
+            self.pos += 4
+            hex += f" {const32 &0xFFFFFFFF:08X}"
+            constant = const32
+
+        text = f"{op} {rmfield}, {constant}"
+
+        print(f"{address:8}: {hex:50} {text}")
 
 def functatasdt () :
     if True :
 
-
-        if ord(byte) & 0b11111100 == 0b10000000 : # immediate mode 100000xs
-            x = (ord(byte) & 0b00000010) >> 1 # 0: same size as s, 1: sign-extended
-            s =  ord(byte) & 0b00000001       # 0: 8-bit,          1: 32-bit
-            _hex += f"100000 {x}{s}"
-            print("immediate mode")
-
-            modrm = f.read(1) 
-            mod, reg, rm = ModRM(modrm)
-            _hex += f" {mod:02b} {reg:03b} {rm:03b}"
-
-            if reg == 0b000 :
-                print("immediate add")
-            if reg == 0b111:
-                print("immediate cmp")
 
         if ord(byte) & 0b11111110 == 0b00000100 : # ADD 0000010s
             print("accumulator add")
