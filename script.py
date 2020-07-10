@@ -78,7 +78,7 @@ class Disassembler_x86:
                 # 0E      00 0 01 110       | PUSH CS
                     self.UNKNOWN_OPCODE,        # 0E
                 # 0F      00 0 01 111       | Instruction set switch
-                    self.UNKNOWN_OPCODE,        # 0F
+                    self.MODE_SWITCH,           # 0F
             # 10-17: ADC, SS
                 # 10:ds   00 0 10 0ds       | ADC
                     self.UNKNOWN_OPCODE,        # 10
@@ -146,10 +146,10 @@ class Disassembler_x86:
                     self.UNKNOWN_OPCODE,        # 37
             # 38-3F: CMP, DSo AAS
                 # 38:ds   00 1 11 0ds       | CMP
-                    self.UNKNOWN_OPCODE,        # 38
-                    self.UNKNOWN_OPCODE,        # 39
-                    self.UNKNOWN_OPCODE,        # 3A
-                    self.UNKNOWN_OPCODE,        # 3B
+                    self.CMP,        # 38
+                    self.CMP,        # 39
+                    self.CMP,        # 3A
+                    self.CMP,        # 3B
                 # 3C:s    00 1 11 10s       | acc CMP
                     self.UNKNOWN_OPCODE,        # 3C
                     self.UNKNOWN_OPCODE,        # 3D
@@ -159,41 +159,41 @@ class Disassembler_x86:
                     self.UNKNOWN_OPCODE,        # 3F
             # 40-5F: reg operations
                 # 40:reg  010 00 reg        | INC reg
-                    self.UNKNOWN_OPCODE,        # 40
-                    self.UNKNOWN_OPCODE,        # 41
-                    self.UNKNOWN_OPCODE,        # 42
-                    self.UNKNOWN_OPCODE,        # 43
-                    self.UNKNOWN_OPCODE,        # 44
-                    self.UNKNOWN_OPCODE,        # 45
-                    self.UNKNOWN_OPCODE,        # 46
-                    self.UNKNOWN_OPCODE,        # 47
+                    self.INC,        # 40
+                    self.INC,        # 41
+                    self.INC,        # 42
+                    self.INC,        # 43
+                    self.INC,        # 44
+                    self.INC,        # 45
+                    self.INC,        # 46
+                    self.INC,        # 47
                 # 48:reg  010 01 reg        | DEC reg
-                    self.UNKNOWN_OPCODE,        # 48
-                    self.UNKNOWN_OPCODE,        # 49
-                    self.UNKNOWN_OPCODE,        # 4A
-                    self.UNKNOWN_OPCODE,        # 4B
-                    self.UNKNOWN_OPCODE,        # 4C
-                    self.UNKNOWN_OPCODE,        # 4D
-                    self.UNKNOWN_OPCODE,        # 4E
-                    self.UNKNOWN_OPCODE,        # 4F
+                    self.DEC,        # 48
+                    self.DEC,        # 49
+                    self.DEC,        # 4A
+                    self.DEC,        # 4B
+                    self.DEC,        # 4C
+                    self.DEC,        # 4D
+                    self.DEC,        # 4E
+                    self.DEC,        # 4F
                 # 50:reg  010 10 reg        | PUSH reg
-                    self.UNKNOWN_OPCODE,        # 50
-                    self.UNKNOWN_OPCODE,        # 51
-                    self.UNKNOWN_OPCODE,        # 52
-                    self.UNKNOWN_OPCODE,        # 53
-                    self.UNKNOWN_OPCODE,        # 54
-                    self.UNKNOWN_OPCODE,        # 55
-                    self.UNKNOWN_OPCODE,        # 56
-                    self.UNKNOWN_OPCODE,        # 57
+                    self.PUSH,        # 50
+                    self.PUSH,        # 51
+                    self.PUSH,        # 52
+                    self.PUSH,        # 53
+                    self.PUSH,        # 54
+                    self.PUSH,        # 55
+                    self.PUSH,        # 56
+                    self.PUSH,        # 57
                 # 58:reg  010 11 reg        | POP reg
-                    self.UNKNOWN_OPCODE,        # 58
-                    self.UNKNOWN_OPCODE,        # 59
-                    self.UNKNOWN_OPCODE,        # 5A
-                    self.UNKNOWN_OPCODE,        # 5B
-                    self.UNKNOWN_OPCODE,        # 5C
-                    self.UNKNOWN_OPCODE,        # 5D
-                    self.UNKNOWN_OPCODE,        # 5E
-                    self.UNKNOWN_OPCODE,        # 5F
+                    self.POP,        # 58
+                    self.POP,        # 59
+                    self.POP,        # 5A
+                    self.POP,        # 5B
+                    self.POP,        # 5C
+                    self.POP,        # 5D
+                    self.POP,        # 5E
+                    self.POP,        # 5F
             # 60-67
                 # 60      011000 00         | PUSHA
                     self.UNKNOWN_OPCODE,        # 60
@@ -229,37 +229,37 @@ class Disassembler_x86:
                     self.UNKNOWN_OPCODE,        # 6F
             # 70-7F: Jumps
                 # 70      0111 0000         | JO          (OF=1)
-                    self.UNKNOWN_OPCODE,        # 70
+                    self.CJMP8,                 # 70
                 # 71      0111 0001         | JNO         (OF=0)
-                    self.UNKNOWN_OPCODE,        # 71
+                    self.CJMP8,                 # 71
                 # 72      0111 0010         | JB JNAE JC  (CF=1)			
-                    self.UNKNOWN_OPCODE,        # 72
+                    self.CJMP8,                 # 72
                 # 73      0111 0011         | JNB JAE JNC (CF=0)
-                    self.UNKNOWN_OPCODE,        # 73
+                    self.CJMP8,                 # 73
                 # 74      0111 0100         | JZ JE       (ZF=1)
-                    self.UNKNOWN_OPCODE,        # 74
+                    self.CJMP8,                 # 74
                 # 75      0111 0101         | JNZ JNE     (ZF=0)
-                    self.UNKNOWN_OPCODE,        # 75
+                    self.CJMP8,                 # 75
                 # 76      0111 0110         | JBE JNA     (CF=1 OR ZF=1)
-                    self.UNKNOWN_OPCODE,        # 76
+                    self.CJMP8,                 # 76
                 # 77      0111 0111         | JNBE JA     (CF=0 AND ZF=0)
-                    self.UNKNOWN_OPCODE,        # 77
+                    self.CJMP8,                 # 77
                 # 78      0111 1000         | JS          (SF=1)
-                    self.UNKNOWN_OPCODE,        # 78
+                    self.CJMP8,                 # 78
                 # 79      0111 1001         | JNS         (SF=0)
-                    self.UNKNOWN_OPCODE,        # 79
+                    self.CJMP8,                 # 79
                 # 7A      0111 1010         | JP JPE      (PF=1)
-                    self.UNKNOWN_OPCODE,        # 7A
+                    self.CJMP8,                 # 7A
                 # 7B      0111 1011         | JNP JPO     (PF=0)
-                    self.UNKNOWN_OPCODE,        # 7B
+                    self.CJMP8,                 # 7B
                 # 7C      0111 1100         | JL JNGE     (SF!=OF)
-                    self.UNKNOWN_OPCODE,        # 7C
+                    self.CJMP8,                 # 7C
                 # 7D      0111 1101         | JNL JGE     (SF=OF)
-                    self.UNKNOWN_OPCODE,        # 7D
+                    self.CJMP8,                 # 7D
                 # 7E      0111 1110         | JLE JNG     ((ZF=1) OR (SF!=OF))
-                    self.UNKNOWN_OPCODE,        # 7E
+                    self.CJMP8,                 # 7E
                 # 7F      0111 1111         | JNLE JG     ((ZF=0) AND (SF=OF))
-                    self.UNKNOWN_OPCODE,        # 7F
+                    self.CJMP8,                 # 7F
             # 80-83: Immediate
                 # 80:xs/0 100000 xs r000    | ADD const
                 # 80:xs/1 100000 xs r001    | OR const
@@ -281,10 +281,10 @@ class Disassembler_x86:
                     self.UNKNOWN_OPCODE,        # 86
                     self.UNKNOWN_OPCODE,        # 87
                 # 88:ds   100010 ds       | MOV
-                    self.UNKNOWN_OPCODE,        # 88
-                    self.UNKNOWN_OPCODE,        # 89
-                    self.UNKNOWN_OPCODE,        # 8A
-                    self.UNKNOWN_OPCODE,        # 8B
+                    self.MOV,        # 88
+                    self.MOV,        # 89
+                    self.MOV,        # 8A
+                    self.MOV,        # 8B
                 # 8C:d-   1000 11d0       | MOV segreg
                     self.UNKNOWN_OPCODE,        # 8C
                 # 8D      1000 1101       | LEA
@@ -370,8 +370,8 @@ class Disassembler_x86:
                 # C0:s/5  1100 000s r101  | SHR
                 # C0:s/6  1100 000s r110  | SAL
                 # C0:s/7  1100 000s r111  | SAR
-                    self.UNKNOWN_OPCODE,        # C0
-                    self.UNKNOWN_OPCODE,        # C1
+                    self.BITMOVE,        # C0
+                    self.BITMOVE,        # C1
 
                 # C2 RET var
                     self.UNKNOWN_OPCODE,        # C2
@@ -396,7 +396,7 @@ class Disassembler_x86:
                 # CB RETF
                     self.UNKNOWN_OPCODE,        # CB
                 # CC INT3
-                    self.UNKNOWN_OPCODE,        # CC
+                    self.INT3,                  # CC
                 # CD INT
                     self.UNKNOWN_OPCODE,        # CD
                 # CE INTO
@@ -461,8 +461,8 @@ class Disassembler_x86:
                 self.UNKNOWN_OPCODE,        # E6
                 self.UNKNOWN_OPCODE,        # E7
                 # E8 Call
-                    self.CALL,        # E8
-                self.UNKNOWN_OPCODE,        # E9
+                    self.CALL,          # E8
+                    self.JMP,           # E9
                 self.UNKNOWN_OPCODE,        # EA
                 self.UNKNOWN_OPCODE,        # EB
                 self.UNKNOWN_OPCODE,        # EC
@@ -480,9 +480,12 @@ class Disassembler_x86:
                 # F6:s/0  1111 011s r000  | TEST
                 # F6:s/2  1111 011s r010  | NOT
                 # F6:s/3  1111 011s r011  | NEG
-                    self.UNKNOWN_OPCODE,        # F6
-                
-                self.UNKNOWN_OPCODE,        # F7
+                # F6:s/4  1111 011s r100  | MUL
+                # F6:s/5  1111 011s r101  | IMUL
+                # F6:s/6  1111 011s r110  | DIV
+                # F6:s/7  1111 011s r111  | IDIV
+                    self.OP_F6s,        # F6
+                    self.OP_F6s,        # F7
                 self.UNKNOWN_OPCODE,        # F8
                 self.UNKNOWN_OPCODE,        # F9
                 self.UNKNOWN_OPCODE,        # FA
@@ -497,6 +500,785 @@ class Disassembler_x86:
                 # FF/5    1111 1111 r101  | JMP mem
                 # FF/6    1111 1111 r110  | PUSH reg
                     self.UNKNOWN_OPCODE,        # FF
+        ]
+        self.parsetable_0F = [
+            self.UNKNOWN_OPCODE,        # 00
+            self.UNKNOWN_OPCODE,        # 01
+            self.UNKNOWN_OPCODE,        # 02
+            self.UNKNOWN_OPCODE,        # 03
+            self.UNKNOWN_OPCODE,        # 04
+            self.UNKNOWN_OPCODE,        # 05
+            self.UNKNOWN_OPCODE,        # 06
+            self.UNKNOWN_OPCODE,        # 07
+            self.UNKNOWN_OPCODE,        # 08
+            self.UNKNOWN_OPCODE,        # 09
+            self.UNKNOWN_OPCODE,        # 0A
+            self.UNKNOWN_OPCODE,        # 0B
+            self.UNKNOWN_OPCODE,        # 0C
+            self.UNKNOWN_OPCODE,        # 0D
+            self.UNKNOWN_OPCODE,        # 0E
+            self.UNKNOWN_OPCODE,        # 0F
+            self.UNKNOWN_OPCODE,        # 10
+            self.UNKNOWN_OPCODE,        # 11
+            self.UNKNOWN_OPCODE,        # 12
+            self.UNKNOWN_OPCODE,        # 13
+            self.UNKNOWN_OPCODE,        # 14
+            self.UNKNOWN_OPCODE,        # 15
+            self.UNKNOWN_OPCODE,        # 16
+            self.UNKNOWN_OPCODE,        # 17
+            self.UNKNOWN_OPCODE,        # 18
+            self.UNKNOWN_OPCODE,        # 19
+            self.UNKNOWN_OPCODE,        # 1A
+            self.UNKNOWN_OPCODE,        # 1B
+            self.UNKNOWN_OPCODE,        # 1C
+            self.UNKNOWN_OPCODE,        # 1D
+            self.UNKNOWN_OPCODE,        # 1E
+            self.UNKNOWN_OPCODE,        # 1F
+            self.UNKNOWN_OPCODE,        # 20
+            self.UNKNOWN_OPCODE,        # 21
+            self.UNKNOWN_OPCODE,        # 22
+            self.UNKNOWN_OPCODE,        # 23
+            self.UNKNOWN_OPCODE,        # 24
+            self.UNKNOWN_OPCODE,        # 25
+            self.UNKNOWN_OPCODE,        # 26
+            self.UNKNOWN_OPCODE,        # 27
+            self.UNKNOWN_OPCODE,        # 28
+            self.UNKNOWN_OPCODE,        # 29
+            self.UNKNOWN_OPCODE,        # 2A
+            self.UNKNOWN_OPCODE,        # 2B
+            self.UNKNOWN_OPCODE,        # 2C
+            self.UNKNOWN_OPCODE,        # 2D
+            self.UNKNOWN_OPCODE,        # 2E
+            self.UNKNOWN_OPCODE,        # 2F
+            self.UNKNOWN_OPCODE,        # 30
+            self.UNKNOWN_OPCODE,        # 31
+            self.UNKNOWN_OPCODE,        # 32
+            self.UNKNOWN_OPCODE,        # 33
+            self.UNKNOWN_OPCODE,        # 34
+            self.UNKNOWN_OPCODE,        # 35
+            self.UNKNOWN_OPCODE,        # 36
+            self.UNKNOWN_OPCODE,        # 37
+            self.MODE_SWITCH,        # 38
+            self.UNKNOWN_OPCODE,        # 39
+            self.MODE_SWITCH,        # 3A
+            self.UNKNOWN_OPCODE,        # 3B
+            self.UNKNOWN_OPCODE,        # 3C
+            self.UNKNOWN_OPCODE,        # 3D
+            self.UNKNOWN_OPCODE,        # 3E
+            self.UNKNOWN_OPCODE,        # 3F
+            self.UNKNOWN_OPCODE,        # 40
+            self.UNKNOWN_OPCODE,        # 41
+            self.UNKNOWN_OPCODE,        # 42
+            self.UNKNOWN_OPCODE,        # 43
+            self.UNKNOWN_OPCODE,        # 44
+            self.UNKNOWN_OPCODE,        # 45
+            self.UNKNOWN_OPCODE,        # 46
+            self.UNKNOWN_OPCODE,        # 47
+            self.UNKNOWN_OPCODE,        # 48
+            self.UNKNOWN_OPCODE,        # 49
+            self.UNKNOWN_OPCODE,        # 4A
+            self.UNKNOWN_OPCODE,        # 4B
+            self.UNKNOWN_OPCODE,        # 4C
+            self.UNKNOWN_OPCODE,        # 4D
+            self.UNKNOWN_OPCODE,        # 4E
+            self.UNKNOWN_OPCODE,        # 4F
+            self.UNKNOWN_OPCODE,        # 50
+            self.UNKNOWN_OPCODE,        # 51
+            self.UNKNOWN_OPCODE,        # 52
+            self.UNKNOWN_OPCODE,        # 53
+            self.UNKNOWN_OPCODE,        # 54
+            self.UNKNOWN_OPCODE,        # 55
+            self.UNKNOWN_OPCODE,        # 56
+            self.UNKNOWN_OPCODE,        # 57
+            self.UNKNOWN_OPCODE,        # 58
+            self.UNKNOWN_OPCODE,        # 59
+            self.UNKNOWN_OPCODE,        # 5A
+            self.UNKNOWN_OPCODE,        # 5B
+            self.UNKNOWN_OPCODE,        # 5C
+            self.UNKNOWN_OPCODE,        # 5D
+            self.UNKNOWN_OPCODE,        # 5E
+            self.UNKNOWN_OPCODE,        # 5F
+            self.UNKNOWN_OPCODE,        # 60
+            self.UNKNOWN_OPCODE,        # 61
+            self.UNKNOWN_OPCODE,        # 62
+            self.UNKNOWN_OPCODE,        # 63
+            self.UNKNOWN_OPCODE,        # 64
+            self.UNKNOWN_OPCODE,        # 65
+            self.UNKNOWN_OPCODE,        # 66
+            self.UNKNOWN_OPCODE,        # 67
+            self.UNKNOWN_OPCODE,        # 68
+            self.UNKNOWN_OPCODE,        # 69
+            self.UNKNOWN_OPCODE,        # 6A
+            self.UNKNOWN_OPCODE,        # 6B
+            self.UNKNOWN_OPCODE,        # 6C
+            self.UNKNOWN_OPCODE,        # 6D
+            self.UNKNOWN_OPCODE,        # 6E
+            self.UNKNOWN_OPCODE,        # 6F
+            self.UNKNOWN_OPCODE,        # 70
+            self.UNKNOWN_OPCODE,        # 71
+            self.UNKNOWN_OPCODE,        # 72
+            self.UNKNOWN_OPCODE,        # 73
+            self.UNKNOWN_OPCODE,        # 74
+            self.UNKNOWN_OPCODE,        # 75
+            self.UNKNOWN_OPCODE,        # 76
+            self.UNKNOWN_OPCODE,        # 77
+            self.UNKNOWN_OPCODE,        # 7C
+            self.UNKNOWN_OPCODE,        # 7D
+            self.UNKNOWN_OPCODE,        # 7E
+            self.UNKNOWN_OPCODE,        # 7F
+            # 80-8F: Jumps
+                # 80      1000 0000         | JO          (OF=1)
+                    self.CJMP32,                # 80
+                # 81      1000 0001         | JNO         (OF=0)
+                    self.CJMP32,                # 81
+                # 82      1000 0010         | JB JNAE JC  (CF=1)
+                    self.CJMP32,                # 82
+                # 83      1000 0011         | JNB JAE JNC (CF=0)
+                    self.CJMP32,                # 83
+                # 84      1000 0100         | JZ JE       (ZF=1)
+                    self.CJMP32,                # 84
+                # 85      1000 0101         | JNZ JNE     (ZF=0)
+                    self.CJMP32,                # 85
+                # 86      1000 0110         | JBE JNA     (CF=1 OR ZF=1)
+                    self.CJMP32,                # 86
+                # 87      1000 0111         | JNBE JA     (CF=0 AND ZF=0)
+                    self.CJMP32,                # 87
+                # 88      1000 1000         | JS          (SF=1)
+                    self.CJMP32,                # 88
+                # 89      1000 1001         | JNS         (SF=0)
+                    self.CJMP32,                # 89
+                # 8A      1000 1010         | JP JPE      (PF=1)
+                    self.CJMP32,                # 8A
+                # 8B      1000 1011         | JNP JPO     (PF=0)
+                    self.CJMP32,                # 8B
+                # 8C      1000 1100         | JL JNGE     (SF!=OF)
+                    self.CJMP32,                # 8C
+                # 8D      1000 1101         | JNL JGE     (SF=OF)
+                    self.CJMP32,                # 8D
+                # 8E      1000 1110         | JLE JNG     ((ZF=1) OR (SF!=OF))
+                    self.CJMP32,                # 8E
+                # 8F      1000 1111         | JNLE JG     ((ZF=0) AND (SF=OF))
+                    self.CJMP32,                # 8F
+            self.UNKNOWN_OPCODE,        # 90
+            self.UNKNOWN_OPCODE,        # 91
+            self.UNKNOWN_OPCODE,        # 92
+            self.UNKNOWN_OPCODE,        # 93
+            self.UNKNOWN_OPCODE,        # 94
+            self.UNKNOWN_OPCODE,        # 95
+            self.UNKNOWN_OPCODE,        # 96
+            self.UNKNOWN_OPCODE,        # 97
+            self.UNKNOWN_OPCODE,        # 98
+            self.UNKNOWN_OPCODE,        # 99
+            self.UNKNOWN_OPCODE,        # 9A
+            self.UNKNOWN_OPCODE,        # 9B
+            self.UNKNOWN_OPCODE,        # 9C
+            self.UNKNOWN_OPCODE,        # 9D
+            self.UNKNOWN_OPCODE,        # 9E
+            self.UNKNOWN_OPCODE,        # 9F
+            self.UNKNOWN_OPCODE,        # A0
+            self.UNKNOWN_OPCODE,        # A1
+            self.UNKNOWN_OPCODE,        # A2
+            self.UNKNOWN_OPCODE,        # A3
+            self.UNKNOWN_OPCODE,        # A4
+            self.UNKNOWN_OPCODE,        # A5
+            self.UNKNOWN_OPCODE,        # A6
+            self.UNKNOWN_OPCODE,        # A7
+            self.UNKNOWN_OPCODE,        # A8
+            self.UNKNOWN_OPCODE,        # A9
+            self.UNKNOWN_OPCODE,        # AA
+            self.UNKNOWN_OPCODE,        # AB
+            self.UNKNOWN_OPCODE,        # AC
+            self.UNKNOWN_OPCODE,        # AD
+            self.UNKNOWN_OPCODE,        # AE
+            self.UNKNOWN_OPCODE,        # AF
+            self.UNKNOWN_OPCODE,        # B0
+            self.UNKNOWN_OPCODE,        # B1
+            self.UNKNOWN_OPCODE,        # B2
+            self.UNKNOWN_OPCODE,        # B3
+            self.UNKNOWN_OPCODE,        # B4
+            self.UNKNOWN_OPCODE,        # B5
+            self.UNKNOWN_OPCODE,        # B6
+            self.UNKNOWN_OPCODE,        # B7
+            self.UNKNOWN_OPCODE,        # B8
+            self.UNKNOWN_OPCODE,        # B9
+            self.UNKNOWN_OPCODE,        # BA
+            self.UNKNOWN_OPCODE,        # BB
+            self.UNKNOWN_OPCODE,        # BC
+            self.UNKNOWN_OPCODE,        # BD
+            self.UNKNOWN_OPCODE,        # BE
+            self.UNKNOWN_OPCODE,        # BF
+            self.UNKNOWN_OPCODE,        # C0
+            self.UNKNOWN_OPCODE,        # C1
+            self.UNKNOWN_OPCODE,        # C2
+            self.UNKNOWN_OPCODE,        # C3
+            self.UNKNOWN_OPCODE,        # C4
+            self.UNKNOWN_OPCODE,        # C5
+            self.UNKNOWN_OPCODE,        # C6
+            self.UNKNOWN_OPCODE,        # C7
+            self.UNKNOWN_OPCODE,        # C8
+            self.UNKNOWN_OPCODE,        # C9
+            self.UNKNOWN_OPCODE,        # CA
+            self.UNKNOWN_OPCODE,        # CB
+            self.UNKNOWN_OPCODE,        # CC
+            self.UNKNOWN_OPCODE,        # CD
+            self.UNKNOWN_OPCODE,        # CE
+            self.UNKNOWN_OPCODE,        # CF
+            self.UNKNOWN_OPCODE,        # D0
+            self.UNKNOWN_OPCODE,        # D1
+            self.UNKNOWN_OPCODE,        # D2
+            self.UNKNOWN_OPCODE,        # D3
+            self.UNKNOWN_OPCODE,        # D4
+            self.UNKNOWN_OPCODE,        # D5
+            self.UNKNOWN_OPCODE,        # D6
+            self.UNKNOWN_OPCODE,        # D7
+            self.UNKNOWN_OPCODE,        # D8
+            self.UNKNOWN_OPCODE,        # D9
+            self.UNKNOWN_OPCODE,        # DA
+            self.UNKNOWN_OPCODE,        # DB
+            self.UNKNOWN_OPCODE,        # DC
+            self.UNKNOWN_OPCODE,        # DD
+            self.UNKNOWN_OPCODE,        # DE
+            self.UNKNOWN_OPCODE,        # DF
+            self.UNKNOWN_OPCODE,        # E0
+            self.UNKNOWN_OPCODE,        # E1
+            self.UNKNOWN_OPCODE,        # E2
+            self.UNKNOWN_OPCODE,        # E3
+            self.UNKNOWN_OPCODE,        # E4
+            self.UNKNOWN_OPCODE,        # E5
+            self.UNKNOWN_OPCODE,        # E6
+            self.UNKNOWN_OPCODE,        # E7
+            self.UNKNOWN_OPCODE,        # E8
+            self.UNKNOWN_OPCODE,        # E9
+            self.UNKNOWN_OPCODE,        # EA
+            self.UNKNOWN_OPCODE,        # EB
+            self.UNKNOWN_OPCODE,        # EC
+            self.UNKNOWN_OPCODE,        # ED
+            self.UNKNOWN_OPCODE,        # EE
+            self.UNKNOWN_OPCODE,        # EF
+            self.UNKNOWN_OPCODE,        # F0
+            self.UNKNOWN_OPCODE,        # F1
+            self.UNKNOWN_OPCODE,        # F2
+            self.UNKNOWN_OPCODE,        # F3
+            self.UNKNOWN_OPCODE,        # F4
+            self.UNKNOWN_OPCODE,        # F5
+            self.UNKNOWN_OPCODE,        # F6
+            self.UNKNOWN_OPCODE,        # F7
+            self.UNKNOWN_OPCODE,        # F8
+            self.UNKNOWN_OPCODE,        # F9
+            self.UNKNOWN_OPCODE,        # FA
+            self.UNKNOWN_OPCODE,        # FB
+            self.UNKNOWN_OPCODE,        # FC
+            self.UNKNOWN_OPCODE,        # FD
+            self.UNKNOWN_OPCODE,        # FE
+            self.UNKNOWN_OPCODE,        # FF
+        ]
+        self.parsetable_0F38 = [
+            self.UNKNOWN_OPCODE,        # 00
+            self.UNKNOWN_OPCODE,        # 01
+            self.UNKNOWN_OPCODE,        # 02
+            self.UNKNOWN_OPCODE,        # 03
+            self.UNKNOWN_OPCODE,        # 04
+            self.UNKNOWN_OPCODE,        # 05
+            self.UNKNOWN_OPCODE,        # 06
+            self.UNKNOWN_OPCODE,        # 07
+            self.UNKNOWN_OPCODE,        # 08
+            self.UNKNOWN_OPCODE,        # 09
+            self.UNKNOWN_OPCODE,        # 0A
+            self.UNKNOWN_OPCODE,        # 0B
+            self.UNKNOWN_OPCODE,        # 0C
+            self.UNKNOWN_OPCODE,        # 0D
+            self.UNKNOWN_OPCODE,        # 0E
+            self.UNKNOWN_OPCODE,        # 0F
+            self.UNKNOWN_OPCODE,        # 10
+            self.UNKNOWN_OPCODE,        # 11
+            self.UNKNOWN_OPCODE,        # 12
+            self.UNKNOWN_OPCODE,        # 13
+            self.UNKNOWN_OPCODE,        # 14
+            self.UNKNOWN_OPCODE,        # 15
+            self.UNKNOWN_OPCODE,        # 16
+            self.UNKNOWN_OPCODE,        # 17
+            self.UNKNOWN_OPCODE,        # 18
+            self.UNKNOWN_OPCODE,        # 19
+            self.UNKNOWN_OPCODE,        # 1A
+            self.UNKNOWN_OPCODE,        # 1B
+            self.UNKNOWN_OPCODE,        # 1C
+            self.UNKNOWN_OPCODE,        # 1D
+            self.UNKNOWN_OPCODE,        # 1E
+            self.UNKNOWN_OPCODE,        # 1F
+            self.UNKNOWN_OPCODE,        # 20
+            self.UNKNOWN_OPCODE,        # 21
+            self.UNKNOWN_OPCODE,        # 22
+            self.UNKNOWN_OPCODE,        # 23
+            self.UNKNOWN_OPCODE,        # 24
+            self.UNKNOWN_OPCODE,        # 25
+            self.UNKNOWN_OPCODE,        # 26
+            self.UNKNOWN_OPCODE,        # 27
+            self.UNKNOWN_OPCODE,        # 28
+            self.UNKNOWN_OPCODE,        # 29
+            self.UNKNOWN_OPCODE,        # 2A
+            self.UNKNOWN_OPCODE,        # 2B
+            self.UNKNOWN_OPCODE,        # 2C
+            self.UNKNOWN_OPCODE,        # 2D
+            self.UNKNOWN_OPCODE,        # 2E
+            self.UNKNOWN_OPCODE,        # 2F
+            self.UNKNOWN_OPCODE,        # 30
+            self.UNKNOWN_OPCODE,        # 31
+            self.UNKNOWN_OPCODE,        # 32
+            self.UNKNOWN_OPCODE,        # 33
+            self.UNKNOWN_OPCODE,        # 34
+            self.UNKNOWN_OPCODE,        # 35
+            self.UNKNOWN_OPCODE,        # 36
+            self.UNKNOWN_OPCODE,        # 37
+            self.UNKNOWN_OPCODE,        # 38
+            self.UNKNOWN_OPCODE,        # 39
+            self.UNKNOWN_OPCODE,        # 3A
+            self.UNKNOWN_OPCODE,        # 3B
+            self.UNKNOWN_OPCODE,        # 3C
+            self.UNKNOWN_OPCODE,        # 3D
+            self.UNKNOWN_OPCODE,        # 3E
+            self.UNKNOWN_OPCODE,        # 3F
+            self.UNKNOWN_OPCODE,        # 40
+            self.UNKNOWN_OPCODE,        # 41
+            self.UNKNOWN_OPCODE,        # 42
+            self.UNKNOWN_OPCODE,        # 43
+            self.UNKNOWN_OPCODE,        # 44
+            self.UNKNOWN_OPCODE,        # 45
+            self.UNKNOWN_OPCODE,        # 46
+            self.UNKNOWN_OPCODE,        # 47
+            self.UNKNOWN_OPCODE,        # 48
+            self.UNKNOWN_OPCODE,        # 49
+            self.UNKNOWN_OPCODE,        # 4A
+            self.UNKNOWN_OPCODE,        # 4B
+            self.UNKNOWN_OPCODE,        # 4C
+            self.UNKNOWN_OPCODE,        # 4D
+            self.UNKNOWN_OPCODE,        # 4E
+            self.UNKNOWN_OPCODE,        # 4F
+            self.UNKNOWN_OPCODE,        # 50
+            self.UNKNOWN_OPCODE,        # 51
+            self.UNKNOWN_OPCODE,        # 52
+            self.UNKNOWN_OPCODE,        # 53
+            self.UNKNOWN_OPCODE,        # 54
+            self.UNKNOWN_OPCODE,        # 55
+            self.UNKNOWN_OPCODE,        # 56
+            self.UNKNOWN_OPCODE,        # 57
+            self.UNKNOWN_OPCODE,        # 58
+            self.UNKNOWN_OPCODE,        # 59
+            self.UNKNOWN_OPCODE,        # 5A
+            self.UNKNOWN_OPCODE,        # 5B
+            self.UNKNOWN_OPCODE,        # 5C
+            self.UNKNOWN_OPCODE,        # 5D
+            self.UNKNOWN_OPCODE,        # 5E
+            self.UNKNOWN_OPCODE,        # 5F
+            self.UNKNOWN_OPCODE,        # 60
+            self.UNKNOWN_OPCODE,        # 61
+            self.UNKNOWN_OPCODE,        # 62
+            self.UNKNOWN_OPCODE,        # 63
+            self.UNKNOWN_OPCODE,        # 64
+            self.UNKNOWN_OPCODE,        # 65
+            self.UNKNOWN_OPCODE,        # 66
+            self.UNKNOWN_OPCODE,        # 67
+            self.UNKNOWN_OPCODE,        # 68
+            self.UNKNOWN_OPCODE,        # 69
+            self.UNKNOWN_OPCODE,        # 6A
+            self.UNKNOWN_OPCODE,        # 6B
+            self.UNKNOWN_OPCODE,        # 6C
+            self.UNKNOWN_OPCODE,        # 6D
+            self.UNKNOWN_OPCODE,        # 6E
+            self.UNKNOWN_OPCODE,        # 6F
+            self.UNKNOWN_OPCODE,        # 70
+            self.UNKNOWN_OPCODE,        # 71
+            self.UNKNOWN_OPCODE,        # 72
+            self.UNKNOWN_OPCODE,        # 73
+            self.UNKNOWN_OPCODE,        # 74
+            self.UNKNOWN_OPCODE,        # 75
+            self.UNKNOWN_OPCODE,        # 76
+            self.UNKNOWN_OPCODE,        # 77
+            self.UNKNOWN_OPCODE,        # 78
+            self.UNKNOWN_OPCODE,        # 79
+            self.UNKNOWN_OPCODE,        # 7A
+            self.UNKNOWN_OPCODE,        # 7B
+            self.UNKNOWN_OPCODE,        # 7C
+            self.UNKNOWN_OPCODE,        # 7D
+            self.UNKNOWN_OPCODE,        # 7E
+            self.UNKNOWN_OPCODE,        # 7F
+            self.UNKNOWN_OPCODE,        # 80
+            self.UNKNOWN_OPCODE,        # 81
+            self.UNKNOWN_OPCODE,        # 82
+            self.UNKNOWN_OPCODE,        # 83
+            self.UNKNOWN_OPCODE,        # 84
+            self.UNKNOWN_OPCODE,        # 85
+            self.UNKNOWN_OPCODE,        # 86
+            self.UNKNOWN_OPCODE,        # 87
+            self.UNKNOWN_OPCODE,        # 8C
+            self.UNKNOWN_OPCODE,        # 8D
+            self.UNKNOWN_OPCODE,        # 8E
+            self.UNKNOWN_OPCODE,        # 8F
+            self.UNKNOWN_OPCODE,        # 90
+            self.UNKNOWN_OPCODE,        # 91
+            self.UNKNOWN_OPCODE,        # 92
+            self.UNKNOWN_OPCODE,        # 93
+            self.UNKNOWN_OPCODE,        # 94
+            self.UNKNOWN_OPCODE,        # 95
+            self.UNKNOWN_OPCODE,        # 96
+            self.UNKNOWN_OPCODE,        # 97
+            self.UNKNOWN_OPCODE,        # 98
+            self.UNKNOWN_OPCODE,        # 99
+            self.UNKNOWN_OPCODE,        # 9A
+            self.UNKNOWN_OPCODE,        # 9B
+            self.UNKNOWN_OPCODE,        # 9C
+            self.UNKNOWN_OPCODE,        # 9D
+            self.UNKNOWN_OPCODE,        # 9E
+            self.UNKNOWN_OPCODE,        # 9F
+            self.UNKNOWN_OPCODE,        # A0
+            self.UNKNOWN_OPCODE,        # A1
+            self.UNKNOWN_OPCODE,        # A2
+            self.UNKNOWN_OPCODE,        # A3
+            self.UNKNOWN_OPCODE,        # A4
+            self.UNKNOWN_OPCODE,        # A5
+            self.UNKNOWN_OPCODE,        # A6
+            self.UNKNOWN_OPCODE,        # A7
+            self.UNKNOWN_OPCODE,        # A8
+            self.UNKNOWN_OPCODE,        # A9
+            self.UNKNOWN_OPCODE,        # AA
+            self.UNKNOWN_OPCODE,        # AB
+            self.UNKNOWN_OPCODE,        # AC
+            self.UNKNOWN_OPCODE,        # AD
+            self.UNKNOWN_OPCODE,        # AE
+            self.UNKNOWN_OPCODE,        # AF
+            self.UNKNOWN_OPCODE,        # B0
+            self.UNKNOWN_OPCODE,        # B1
+            self.UNKNOWN_OPCODE,        # B2
+            self.UNKNOWN_OPCODE,        # B3
+            self.UNKNOWN_OPCODE,        # B4
+            self.UNKNOWN_OPCODE,        # B5
+            self.UNKNOWN_OPCODE,        # B6
+            self.UNKNOWN_OPCODE,        # B7
+            self.UNKNOWN_OPCODE,        # B8
+            self.UNKNOWN_OPCODE,        # B9
+            self.UNKNOWN_OPCODE,        # BA
+            self.UNKNOWN_OPCODE,        # BB
+            self.UNKNOWN_OPCODE,        # BC
+            self.UNKNOWN_OPCODE,        # BD
+            self.UNKNOWN_OPCODE,        # BE
+            self.UNKNOWN_OPCODE,        # BF
+            self.UNKNOWN_OPCODE,        # C0
+            self.UNKNOWN_OPCODE,        # C1
+            self.UNKNOWN_OPCODE,        # C2
+            self.UNKNOWN_OPCODE,        # C3
+            self.UNKNOWN_OPCODE,        # C4
+            self.UNKNOWN_OPCODE,        # C5
+            self.UNKNOWN_OPCODE,        # C6
+            self.UNKNOWN_OPCODE,        # C7
+            self.UNKNOWN_OPCODE,        # C8
+            self.UNKNOWN_OPCODE,        # C9
+            self.UNKNOWN_OPCODE,        # CA
+            self.UNKNOWN_OPCODE,        # CB
+            self.UNKNOWN_OPCODE,        # CC
+            self.UNKNOWN_OPCODE,        # CD
+            self.UNKNOWN_OPCODE,        # CE
+            self.UNKNOWN_OPCODE,        # CF
+            self.UNKNOWN_OPCODE,        # D0
+            self.UNKNOWN_OPCODE,        # D1
+            self.UNKNOWN_OPCODE,        # D2
+            self.UNKNOWN_OPCODE,        # D3
+            self.UNKNOWN_OPCODE,        # D4
+            self.UNKNOWN_OPCODE,        # D5
+            self.UNKNOWN_OPCODE,        # D6
+            self.UNKNOWN_OPCODE,        # D7
+            self.UNKNOWN_OPCODE,        # D8
+            self.UNKNOWN_OPCODE,        # D9
+            self.UNKNOWN_OPCODE,        # DA
+            self.UNKNOWN_OPCODE,        # DB
+            self.UNKNOWN_OPCODE,        # DC
+            self.UNKNOWN_OPCODE,        # DD
+            self.UNKNOWN_OPCODE,        # DE
+            self.UNKNOWN_OPCODE,        # DF
+            self.UNKNOWN_OPCODE,        # E0
+            self.UNKNOWN_OPCODE,        # E1
+            self.UNKNOWN_OPCODE,        # E2
+            self.UNKNOWN_OPCODE,        # E3
+            self.UNKNOWN_OPCODE,        # E4
+            self.UNKNOWN_OPCODE,        # E5
+            self.UNKNOWN_OPCODE,        # E6
+            self.UNKNOWN_OPCODE,        # E7
+            self.UNKNOWN_OPCODE,        # E8
+            self.UNKNOWN_OPCODE,        # E9
+            self.UNKNOWN_OPCODE,        # EA
+            self.UNKNOWN_OPCODE,        # EB
+            self.UNKNOWN_OPCODE,        # EC
+            self.UNKNOWN_OPCODE,        # ED
+            self.UNKNOWN_OPCODE,        # EE
+            self.UNKNOWN_OPCODE,        # EF
+            self.UNKNOWN_OPCODE,        # F0
+            self.UNKNOWN_OPCODE,        # F1
+            self.UNKNOWN_OPCODE,        # F2
+            self.UNKNOWN_OPCODE,        # F3
+            self.UNKNOWN_OPCODE,        # F4
+            self.UNKNOWN_OPCODE,        # F5
+            self.UNKNOWN_OPCODE,        # F6
+            self.UNKNOWN_OPCODE,        # F7
+            self.UNKNOWN_OPCODE,        # F8
+            self.UNKNOWN_OPCODE,        # F9
+            self.UNKNOWN_OPCODE,        # FA
+            self.UNKNOWN_OPCODE,        # FB
+            self.UNKNOWN_OPCODE,        # FC
+            self.UNKNOWN_OPCODE,        # FD
+            self.UNKNOWN_OPCODE,        # FE
+            self.UNKNOWN_OPCODE,        # FF
+        ]
+        self.parsetable_0F3A = [
+            self.UNKNOWN_OPCODE,        # 00
+            self.UNKNOWN_OPCODE,        # 01
+            self.UNKNOWN_OPCODE,        # 02
+            self.UNKNOWN_OPCODE,        # 03
+            self.UNKNOWN_OPCODE,        # 04
+            self.UNKNOWN_OPCODE,        # 05
+            self.UNKNOWN_OPCODE,        # 06
+            self.UNKNOWN_OPCODE,        # 07
+            self.UNKNOWN_OPCODE,        # 08
+            self.UNKNOWN_OPCODE,        # 09
+            self.UNKNOWN_OPCODE,        # 0A
+            self.UNKNOWN_OPCODE,        # 0B
+            self.UNKNOWN_OPCODE,        # 0C
+            self.UNKNOWN_OPCODE,        # 0D
+            self.UNKNOWN_OPCODE,        # 0E
+            self.UNKNOWN_OPCODE,        # 0F
+            self.UNKNOWN_OPCODE,        # 10
+            self.UNKNOWN_OPCODE,        # 11
+            self.UNKNOWN_OPCODE,        # 12
+            self.UNKNOWN_OPCODE,        # 13
+            self.UNKNOWN_OPCODE,        # 14
+            self.UNKNOWN_OPCODE,        # 15
+            self.UNKNOWN_OPCODE,        # 16
+            self.UNKNOWN_OPCODE,        # 17
+            self.UNKNOWN_OPCODE,        # 18
+            self.UNKNOWN_OPCODE,        # 19
+            self.UNKNOWN_OPCODE,        # 1A
+            self.UNKNOWN_OPCODE,        # 1B
+            self.UNKNOWN_OPCODE,        # 1C
+            self.UNKNOWN_OPCODE,        # 1D
+            self.UNKNOWN_OPCODE,        # 1E
+            self.UNKNOWN_OPCODE,        # 1F
+            self.UNKNOWN_OPCODE,        # 20
+            self.UNKNOWN_OPCODE,        # 21
+            self.UNKNOWN_OPCODE,        # 22
+            self.UNKNOWN_OPCODE,        # 23
+            self.UNKNOWN_OPCODE,        # 24
+            self.UNKNOWN_OPCODE,        # 25
+            self.UNKNOWN_OPCODE,        # 26
+            self.UNKNOWN_OPCODE,        # 27
+            self.UNKNOWN_OPCODE,        # 28
+            self.UNKNOWN_OPCODE,        # 29
+            self.UNKNOWN_OPCODE,        # 2A
+            self.UNKNOWN_OPCODE,        # 2B
+            self.UNKNOWN_OPCODE,        # 2C
+            self.UNKNOWN_OPCODE,        # 2D
+            self.UNKNOWN_OPCODE,        # 2E
+            self.UNKNOWN_OPCODE,        # 2F
+            self.UNKNOWN_OPCODE,        # 30
+            self.UNKNOWN_OPCODE,        # 31
+            self.UNKNOWN_OPCODE,        # 32
+            self.UNKNOWN_OPCODE,        # 33
+            self.UNKNOWN_OPCODE,        # 34
+            self.UNKNOWN_OPCODE,        # 35
+            self.UNKNOWN_OPCODE,        # 36
+            self.UNKNOWN_OPCODE,        # 37
+            self.UNKNOWN_OPCODE,        # 38
+            self.UNKNOWN_OPCODE,        # 39
+            self.UNKNOWN_OPCODE,        # 3A
+            self.UNKNOWN_OPCODE,        # 3B
+            self.UNKNOWN_OPCODE,        # 3C
+            self.UNKNOWN_OPCODE,        # 3D
+            self.UNKNOWN_OPCODE,        # 3E
+            self.UNKNOWN_OPCODE,        # 3F
+            self.UNKNOWN_OPCODE,        # 40
+            self.UNKNOWN_OPCODE,        # 41
+            self.UNKNOWN_OPCODE,        # 42
+            self.UNKNOWN_OPCODE,        # 43
+            self.UNKNOWN_OPCODE,        # 44
+            self.UNKNOWN_OPCODE,        # 45
+            self.UNKNOWN_OPCODE,        # 46
+            self.UNKNOWN_OPCODE,        # 47
+            self.UNKNOWN_OPCODE,        # 48
+            self.UNKNOWN_OPCODE,        # 49
+            self.UNKNOWN_OPCODE,        # 4A
+            self.UNKNOWN_OPCODE,        # 4B
+            self.UNKNOWN_OPCODE,        # 4C
+            self.UNKNOWN_OPCODE,        # 4D
+            self.UNKNOWN_OPCODE,        # 4E
+            self.UNKNOWN_OPCODE,        # 4F
+            self.UNKNOWN_OPCODE,        # 50
+            self.UNKNOWN_OPCODE,        # 51
+            self.UNKNOWN_OPCODE,        # 52
+            self.UNKNOWN_OPCODE,        # 53
+            self.UNKNOWN_OPCODE,        # 54
+            self.UNKNOWN_OPCODE,        # 55
+            self.UNKNOWN_OPCODE,        # 56
+            self.UNKNOWN_OPCODE,        # 57
+            self.UNKNOWN_OPCODE,        # 58
+            self.UNKNOWN_OPCODE,        # 59
+            self.UNKNOWN_OPCODE,        # 5A
+            self.UNKNOWN_OPCODE,        # 5B
+            self.UNKNOWN_OPCODE,        # 5C
+            self.UNKNOWN_OPCODE,        # 5D
+            self.UNKNOWN_OPCODE,        # 5E
+            self.UNKNOWN_OPCODE,        # 5F
+            self.UNKNOWN_OPCODE,        # 60
+            self.UNKNOWN_OPCODE,        # 61
+            self.UNKNOWN_OPCODE,        # 62
+            self.UNKNOWN_OPCODE,        # 63
+            self.UNKNOWN_OPCODE,        # 64
+            self.UNKNOWN_OPCODE,        # 65
+            self.UNKNOWN_OPCODE,        # 66
+            self.UNKNOWN_OPCODE,        # 67
+            self.UNKNOWN_OPCODE,        # 68
+            self.UNKNOWN_OPCODE,        # 69
+            self.UNKNOWN_OPCODE,        # 6A
+            self.UNKNOWN_OPCODE,        # 6B
+            self.UNKNOWN_OPCODE,        # 6C
+            self.UNKNOWN_OPCODE,        # 6D
+            self.UNKNOWN_OPCODE,        # 6E
+            self.UNKNOWN_OPCODE,        # 6F
+            self.UNKNOWN_OPCODE,        # 70
+            self.UNKNOWN_OPCODE,        # 71
+            self.UNKNOWN_OPCODE,        # 72
+            self.UNKNOWN_OPCODE,        # 73
+            self.UNKNOWN_OPCODE,        # 74
+            self.UNKNOWN_OPCODE,        # 75
+            self.UNKNOWN_OPCODE,        # 76
+            self.UNKNOWN_OPCODE,        # 77
+            self.UNKNOWN_OPCODE,        # 78
+            self.UNKNOWN_OPCODE,        # 79
+            self.UNKNOWN_OPCODE,        # 7A
+            self.UNKNOWN_OPCODE,        # 7B
+            self.UNKNOWN_OPCODE,        # 7C
+            self.UNKNOWN_OPCODE,        # 7D
+            self.UNKNOWN_OPCODE,        # 7E
+            self.UNKNOWN_OPCODE,        # 7F
+            self.UNKNOWN_OPCODE,        # 80
+            self.UNKNOWN_OPCODE,        # 81
+            self.UNKNOWN_OPCODE,        # 82
+            self.UNKNOWN_OPCODE,        # 83
+            self.UNKNOWN_OPCODE,        # 84
+            self.UNKNOWN_OPCODE,        # 85
+            self.UNKNOWN_OPCODE,        # 86
+            self.UNKNOWN_OPCODE,        # 87
+            self.UNKNOWN_OPCODE,        # 8C
+            self.UNKNOWN_OPCODE,        # 8D
+            self.UNKNOWN_OPCODE,        # 8E
+            self.UNKNOWN_OPCODE,        # 8F
+            self.UNKNOWN_OPCODE,        # 90
+            self.UNKNOWN_OPCODE,        # 91
+            self.UNKNOWN_OPCODE,        # 92
+            self.UNKNOWN_OPCODE,        # 93
+            self.UNKNOWN_OPCODE,        # 94
+            self.UNKNOWN_OPCODE,        # 95
+            self.UNKNOWN_OPCODE,        # 96
+            self.UNKNOWN_OPCODE,        # 97
+            self.UNKNOWN_OPCODE,        # 98
+            self.UNKNOWN_OPCODE,        # 99
+            self.UNKNOWN_OPCODE,        # 9A
+            self.UNKNOWN_OPCODE,        # 9B
+            self.UNKNOWN_OPCODE,        # 9C
+            self.UNKNOWN_OPCODE,        # 9D
+            self.UNKNOWN_OPCODE,        # 9E
+            self.UNKNOWN_OPCODE,        # 9F
+            self.UNKNOWN_OPCODE,        # A0
+            self.UNKNOWN_OPCODE,        # A1
+            self.UNKNOWN_OPCODE,        # A2
+            self.UNKNOWN_OPCODE,        # A3
+            self.UNKNOWN_OPCODE,        # A4
+            self.UNKNOWN_OPCODE,        # A5
+            self.UNKNOWN_OPCODE,        # A6
+            self.UNKNOWN_OPCODE,        # A7
+            self.UNKNOWN_OPCODE,        # A8
+            self.UNKNOWN_OPCODE,        # A9
+            self.UNKNOWN_OPCODE,        # AA
+            self.UNKNOWN_OPCODE,        # AB
+            self.UNKNOWN_OPCODE,        # AC
+            self.UNKNOWN_OPCODE,        # AD
+            self.UNKNOWN_OPCODE,        # AE
+            self.UNKNOWN_OPCODE,        # AF
+            self.UNKNOWN_OPCODE,        # B0
+            self.UNKNOWN_OPCODE,        # B1
+            self.UNKNOWN_OPCODE,        # B2
+            self.UNKNOWN_OPCODE,        # B3
+            self.UNKNOWN_OPCODE,        # B4
+            self.UNKNOWN_OPCODE,        # B5
+            self.UNKNOWN_OPCODE,        # B6
+            self.UNKNOWN_OPCODE,        # B7
+            self.UNKNOWN_OPCODE,        # B8
+            self.UNKNOWN_OPCODE,        # B9
+            self.UNKNOWN_OPCODE,        # BA
+            self.UNKNOWN_OPCODE,        # BB
+            self.UNKNOWN_OPCODE,        # BC
+            self.UNKNOWN_OPCODE,        # BD
+            self.UNKNOWN_OPCODE,        # BE
+            self.UNKNOWN_OPCODE,        # BF
+            self.UNKNOWN_OPCODE,        # C0
+            self.UNKNOWN_OPCODE,        # C1
+            self.UNKNOWN_OPCODE,        # C2
+            self.UNKNOWN_OPCODE,        # C3
+            self.UNKNOWN_OPCODE,        # C4
+            self.UNKNOWN_OPCODE,        # C5
+            self.UNKNOWN_OPCODE,        # C6
+            self.UNKNOWN_OPCODE,        # C7
+            self.UNKNOWN_OPCODE,        # C8
+            self.UNKNOWN_OPCODE,        # C9
+            self.UNKNOWN_OPCODE,        # CA
+            self.UNKNOWN_OPCODE,        # CB
+            self.UNKNOWN_OPCODE,        # CC
+            self.UNKNOWN_OPCODE,        # CD
+            self.UNKNOWN_OPCODE,        # CE
+            self.UNKNOWN_OPCODE,        # CF
+            self.UNKNOWN_OPCODE,        # D0
+            self.UNKNOWN_OPCODE,        # D1
+            self.UNKNOWN_OPCODE,        # D2
+            self.UNKNOWN_OPCODE,        # D3
+            self.UNKNOWN_OPCODE,        # D4
+            self.UNKNOWN_OPCODE,        # D5
+            self.UNKNOWN_OPCODE,        # D6
+            self.UNKNOWN_OPCODE,        # D7
+            self.UNKNOWN_OPCODE,        # D8
+            self.UNKNOWN_OPCODE,        # D9
+            self.UNKNOWN_OPCODE,        # DA
+            self.UNKNOWN_OPCODE,        # DB
+            self.UNKNOWN_OPCODE,        # DC
+            self.UNKNOWN_OPCODE,        # DD
+            self.UNKNOWN_OPCODE,        # DE
+            self.UNKNOWN_OPCODE,        # DF
+            self.UNKNOWN_OPCODE,        # E0
+            self.UNKNOWN_OPCODE,        # E1
+            self.UNKNOWN_OPCODE,        # E2
+            self.UNKNOWN_OPCODE,        # E3
+            self.UNKNOWN_OPCODE,        # E4
+            self.UNKNOWN_OPCODE,        # E5
+            self.UNKNOWN_OPCODE,        # E6
+            self.UNKNOWN_OPCODE,        # E7
+            self.UNKNOWN_OPCODE,        # E8
+            self.UNKNOWN_OPCODE,        # E9
+            self.UNKNOWN_OPCODE,        # EA
+            self.UNKNOWN_OPCODE,        # EB
+            self.UNKNOWN_OPCODE,        # EC
+            self.UNKNOWN_OPCODE,        # ED
+            self.UNKNOWN_OPCODE,        # EE
+            self.UNKNOWN_OPCODE,        # EF
+            self.UNKNOWN_OPCODE,        # F0
+            self.UNKNOWN_OPCODE,        # F1
+            self.UNKNOWN_OPCODE,        # F2
+            self.UNKNOWN_OPCODE,        # F3
+            self.UNKNOWN_OPCODE,        # F4
+            self.UNKNOWN_OPCODE,        # F5
+            self.UNKNOWN_OPCODE,        # F6
+            self.UNKNOWN_OPCODE,        # F7
+            self.UNKNOWN_OPCODE,        # F8
+            self.UNKNOWN_OPCODE,        # F9
+            self.UNKNOWN_OPCODE,        # FA
+            self.UNKNOWN_OPCODE,        # FB
+            self.UNKNOWN_OPCODE,        # FC
+            self.UNKNOWN_OPCODE,        # FD
+            self.UNKNOWN_OPCODE,        # FE
+            self.UNKNOWN_OPCODE,        # FF
         ]
         self.REGISTER8BIT  = [ "al",  "cl",  "dl",  "bl",  "ah",  "ch",  "dh",  "bh", "r8l", "r9l", "r10l", "r11l", "r12l", "r13l", "r14l", "r15l"]
         self.REGISTER16BIT = [ "ax",  "cx",  "dx",  "bx",  "sp",  "bp",  "si",  "di", "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w"]
@@ -516,6 +1298,8 @@ class Disassembler_x86:
 
     def SPLIT233 ( self ) -> (int, int, int, int) :
         byte = self.stream.read(1)
+        self.pos += 1
+
         if not byte:
             print("SPLIT233 ran out of stream")
             return 0, 0, 0
@@ -591,8 +1375,45 @@ class Disassembler_x86:
         return scale, index, base, byte, rmloc, hex
 
     def UNKNOWN_OPCODE ( self, byte ) :
-        # print(f"Unknown opcode: {byte:02X}")
+        print(f"Unknown opcode: {byte:02X}")
         self.pos += 1
+    
+    def MODE_SWITCH ( self, byte ) :
+        address = f"{self.pos:08X}"
+        self.pos += 1
+        
+        if byte == 0x0F :
+            hex = "0F"
+            
+            text = "MODE-SWITCH 0F"
+            
+            print(f"{address:8}: {hex:50} {text}")
+            
+            byte = ord(self.stream.read(1))
+
+            self.parsetable_0F[byte](byte)
+        elif byte == 0x38 :
+            hex = "0F38"
+            
+            text = "MODE-SWITCH 0F38"
+            
+            print(f"{address:8}: {hex:50} {text}")
+
+            byte = ord(self.stream.read(1))
+
+            self.parsetable_0F38[byte](byte)
+        elif byte == 0x0F3A :
+            hex = "0F3A"
+            
+            text = "MODE-SWITCH 0F3A"
+            
+            print(f"{address:8}: {hex:50} {text}")
+
+            byte = ord(self.stream.read(1))
+
+            self.parsetable_0F3A[byte](byte)
+        else :
+            print("UNKNOWN MODE SWITCH")
     
     def ADD ( self, byte ) :        # 00:ds     modrm
         address = f"{self.pos:08X}"
@@ -612,6 +1433,135 @@ class Disassembler_x86:
             text = f"ADD {regfield}, {rmfield}"
         
         print(f"{address:8}: {hex:50} {text}")
+    def CMP ( self, byte ) :        # 38:ds     modrm
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        d = (byte & 0b00000010) >> 1
+        s =  byte & 0b00000001
+
+        mod, reg, rm, byte, regfield, rmfield, modrmhex = self.MODRM(s)
+
+        hex = f"00:{d}{s}  {modrmhex}"
+
+        text = ""
+        if d == 0 :
+            text = f"CMP {rmfield}, {regfield}"
+        else :
+            text = f"CMP {regfield}, {rmfield}"
+        
+        print(f"{address:8}: {hex:50} {text}")
+    def INC ( self, byte ) :        # 40:reg
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        reg = byte & 0b00000111
+
+        hex = f"40:{reg:b}"
+            
+        text = f"INC {self.REGISTER32BIT[reg]}"
+        
+        print(f"{address:8}: {hex:50} {text}")
+    def DEC ( self, byte ) :        # 48:reg
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        reg = byte & 0b00000111
+
+        hex = f"48:{reg:b}"
+            
+        text = f"DEC {self.REGISTER32BIT[reg]}"
+        
+        print(f"{address:8}: {hex:50} {text}")
+    def PUSH ( self, byte ) :       # 50:reg
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        reg = byte & 0b00000111
+
+        hex = f"50:{reg:b}"
+            
+        text = f"PUSH {self.REGISTER32BIT[reg]}"
+        
+        print(f"{address:8}: {hex:50} {text}")
+    def POP ( self, byte ) :        # 58:reg
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        reg = byte & 0b00000111
+
+        hex = f"58:{reg:b}"
+            
+        text = f"POP {self.REGISTER32BIT[reg]}"
+        
+        print(f"{address:8}: {hex:50} {text}")
+    def CJMP8 ( self, byte ) :      # 70:cjmp   rel8
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        t = byte & 0b00001111
+        op = ["JO", "JNO", "JC", "JNC", "JZ", "JNZ", "JNA", "JA", "JS", "JNS", "JP", "JNP", "JL", "JNL", "JNG", "JG"][t]
+
+        dist = int.from_bytes(self.stream.read(1), byteorder='little', signed=True)
+        self.pos += 1
+
+        hex = f"70:{t:X}    {dist &0xFFFFFFFF:08X}"
+        text = f"{op} {dist} to {self.pos+dist:08X}"
+        
+        print(f"{address:8}: {hex:50} {text}")
+    def MOV (self, byte ) :         # 88:ds     modrm
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        d = (byte & 0b00000010) >> 1
+        s =  byte & 0b00000001
+
+        mod, reg, rm, byte, regfield, rmfield, modrmhex = self.MODRM(s)
+
+        hex = f"00:{d}{s}  {modrmhex}"
+
+        text = ""
+        if d == 0 :
+            text = f"MOV {rmfield}, {regfield}"
+        else :
+            text = f"MOV {regfield}, {rmfield}"
+        
+        print(f"{address:8}: {hex:50} {text}")
+    def BITMOVE ( self, byte ) :    # C0:s      modrm
+        # C0:s/0  1100 000s r000  | ROL
+        # C0:s/1  1100 000s r001  | ROR
+        # C0:s/2  1100 000s r010  | RCL
+        # C0:s/3  1100 000s r011  | RCR
+        # C0:s/4  1100 000s r100  | SHL
+        # C0:s/5  1100 000s r101  | SHR
+        # C0:s/6  1100 000s r110  | SAL
+        # C0:s/7  1100 000s r111  | SAR
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        s =  byte & 0b00000001
+
+        mod, reg, rm, byte, regfield, rmfield, modrmhex = self.MODRM(s)
+
+        hex = f"C0:{s}/{reg} {modrmhex}"
+        
+        op = ["ROL", "ROR", "RCL", "RCR", "SHL", "SHR", "SAL", "SAR"][reg]
+
+        constant = int.from_bytes(self.stream.read(1), byteorder='little', signed=True)
+        self.pos += 1
+        hex += f" {constant &0xFF:02X}"
+
+        text = f"{op} {rmfield}, {constant}"
+        
+        print(f"{address:8}: {hex:50} {text}")
+    def INT3 ( self, byte ) :       # CC
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        hex = "CC"
+        text = "INT3"
+
+        print(f"{address:8}: {hex:50} {text}")
     def CALL ( self, byte ) :       # E8        rel16/32
         address = f"{self.pos:08X}"
         self.pos += 1
@@ -619,8 +1569,19 @@ class Disassembler_x86:
         dist = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
         self.pos += 4
         
-        hex = f"E8      {dist:08X}"
+        hex = f"E8      {dist &0xFFFFFFFF:08X}"
         text = f"CALL {dist} to {self.pos+dist:08X}"
+
+        print(f"{address:8}: {hex:50} {text}")
+    def JMP ( self, byte ) :        # E9        rel16/32
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        dist = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
+        self.pos += 4
+
+        hex = f"E9      {dist &0xFFFFFFFF:08X}"
+        text = f"JMP {dist} to {self.pos+dist:08X}"
 
         print(f"{address:8}: {hex:50} {text}")
     def IMMEDIATE ( self, byte ) :  # 80:xs/r   modrm
@@ -656,199 +1617,53 @@ class Disassembler_x86:
         text = f"{op} {rmfield}, {constant}"
 
         print(f"{address:8}: {hex:50} {text}")
+    def OP_F6s ( self, byte ) :     # F6:s/r
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        s = byte & 0b00000001
+
+        mod, reg, rm, byte, regfield, rmfield, modrmhex = self.MODRM(s)
+
+        hex =  f"F6:{s}/{reg} {modrmhex}"
+            
+        if reg == 0 or reg == 1 :
+            constant = 0
+            if s == 0 :
+                const8 = int.from_bytes(self.stream.read(1), byteorder='little', signed=True)
+                self.pos += 1
+                hex += f" {const8 &0xFF:02X}"
+                constant = const8
+            else :
+                const32 = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
+                self.pos += 4
+                hex += f" {const32 &0xFFFFFFFF:08X}"
+                constant = const32
+
+            text = f"TEST {rmfield}, {constant}"
+        else :
+            op = ["-", "-", "NOT", "NEG", "MUL acc", "IMUL acc", "DIV acc", " IDIV acc"][reg]
+            text = f"{op} {rmfield}"
+
+        print(f"{address:8}: {hex:50} {text}")
+    def CJMP32 ( self, byte ) :      # 0F 70:cjmp   rel16/32
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        t = byte & 0b00001111
+        op = ["JO", "JNO", "JC", "JNC", "JZ", "JNZ", "JNA", "JA", "JS", "JNS", "JP", "JNP", "JL", "JNL", "JNG", "JG"][t]
+
+        dist = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
+        self.pos += 4
+
+        hex = f"70:{t:X}    {dist &0xFFFFFFFF:08X}"
+        text = f"{op} {dist} to {self.pos+dist:08X}"
+        
+        print(f"{address:8}: {hex:50} {text}")
 
 def functatasdt () :
     if True :
-
-
-        if ord(byte) & 0b11111110 == 0b00000100 : # ADD 0000010s
-            print("accumulator add")
-
-        elif xs == 0b01 :
-            byte = f.read(1)
-            _hex += byte
-            if byte == b'\x11 101 100' :
-                read = f.read(4)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"SUB esp, {number}")
-                _hex = bytearray()
-                i += 4
-            elif byte == b'\x11 111 001' :
-                read = f.read(4)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"CMP ecx, {number}")
-                _hex = bytearray()
-                i += 4
-            elif byte == b'\x11 111 010' :
-                read = f.read(4)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"CMP edx, {number}")
-                _hex = bytearray()
-                i += 4
-            i += 1
-
-        elif byte == b'\x100000 11' :
-            byte = f.read(1)
-            _hex += byte
-            if byte == b'\x00 111 101' :
-                read = f.read(4)
-                _hex += read
-                number1 = int.from_bytes(read, byteorder='little', signed=True)
-                read = f.read(1)
-                _hex += read
-                number2 = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"CMP dword ptr [{number1:08X}], {number2}")
-                _hex = bytearray()
-                i += 5
-            elif byte == b'\x01 100 101' :
-                read = f.read(1)
-                _hex += read
-                number1 = int.from_bytes(read, byteorder='little', signed=True)
-                read = f.read(1)
-                _hex += read
-                number2 = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"AND dword ptr [ebp+{number1}], {number2}")
-                _hex = bytearray()
-                i += 2
-            elif byte == b'\x01 111 101' :
-                read = f.read(1)
-                _hex += read
-                number1 = int.from_bytes(read, byteorder='little', signed=True)
-                read = f.read(1)
-                _hex += read
-                number2 = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"CMP dword ptr [ebp+{number1}], {number2}")
-                _hex = bytearray()
-                i += 2
-            elif byte == b'\x11 000 100' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"AND esp, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\x11 000 110' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"AND esi, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xC7' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"AND edi, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\x11 100 000' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"AND eax, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xE1' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"AND ecx, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xE2' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"AND edx, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xE6' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"AND esi, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xE7' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"AND edi, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xE9' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"SUB ecx, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xEA' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"SUB edx, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xEC' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"SUB esp, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xEE' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"SUB esi, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xEF' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"SUB edi, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xF8' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"CMP eax, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xF9' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"CMP ecx, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xFA' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"CMP edx, {number}")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xFE' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"CMP esi, {number}")
-                _hex = bytearray()
-                i += 1
-            i += 1
-
-
-
-
-
-        elif byte == b'\x04' :
+        if byte == b'\x04' :
             read = f.read(1)
             _hex += read
             number = int.from_bytes(read, byteorder='little', signed=True)
@@ -980,56 +1795,6 @@ def functatasdt () :
             callback(start+i, _hex, f"XOR al, {number}")
             _hex = bytearray()
             i += 1
-        elif byte == b'\x39' :
-            byte = f.read(1)
-            _hex += byte
-            if byte == b'\x05' :
-                read = f.read(4)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"CMP [{number}], eax")
-                _hex = bytearray()
-                i += 4
-            i += 1
-        elif byte == b'\x3B' :
-            byte = f.read(1)
-            _hex += byte
-            if byte == b'\x0D' :
-                read = f.read(4)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"CMP ecx, [{number:08X}]")
-                _hex = bytearray()
-                i += 4
-            elif byte == b'\x35' :
-                read = f.read(4)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"CMP esi, [{number:08X}]")
-                _hex = bytearray()
-                i += 4
-            elif byte == b'\xC1' :
-                callback(start+i, _hex, f"CMP eax, ecx")
-                _hex = bytearray()
-            elif byte == b'\xCA' :
-                callback(start+i, _hex, f"CMP ecx, edx")
-                _hex = bytearray()
-            elif byte == b'\xDF' :
-                callback(start+i, _hex, f"CMP ebx, edi")
-                _hex = bytearray()
-            elif byte == b'\xF7' :
-                callback(start+i, _hex, f"CMP esi, edi")
-                _hex = bytearray()
-            elif byte == b'\xF8' :
-                callback(start+i, _hex, f"CMP edi, eax")
-                _hex = bytearray()
-            elif byte == b'\xFA' :
-                callback(start+i, _hex, f"CMP edi, edx")
-                _hex = bytearray()
-            elif byte == b'\xFE' :
-                callback(start+i, _hex, f"CMP edi, esi")
-                _hex = bytearray()
-            i += 1
         elif byte == b'\x3D' :
             read = f.read(4)
             _hex += read
@@ -1054,24 +1819,6 @@ def functatasdt () :
             _hex = bytearray()
         elif byte == b'\x4E' :
             callback(start+i, _hex, f"DEC esi")
-            _hex = bytearray()
-        elif byte == b'\x50' :
-            callback(start+i, _hex, f"PUSH eax")
-            _hex = bytearray()
-        elif byte == b'\x51' :
-            callback(start+i, _hex, f"PUSH ecx")
-            _hex = bytearray()
-        elif byte == b'\x53' :
-            callback(start+i, _hex, f"PUSH ebx")
-            _hex = bytearray()
-        elif byte == b'\x55' :
-            callback(start+i, _hex, f"PUSH ebp")
-            _hex = bytearray()
-        elif byte == b'\x56' :
-            callback(start+i, _hex, f"PUSH esi")
-            _hex = bytearray()
-        elif byte == b'\x57' :
-            callback(start+i, _hex, f"PUSH edi")
             _hex = bytearray()
         elif byte == b'\x59' :
             callback(start+i, _hex, f"POP ecx")
@@ -1116,76 +1863,6 @@ def functatasdt () :
             callback(start+i, _hex, f"PUSH {number}")
             _hex = bytearray()
             i += 1
-        elif byte == b'\x72' :
-            read = f.read(1)
-            _hex += read
-            dist = int.from_bytes(read, byteorder='little', signed=True)
-            callback(start+i, _hex, f"JB [near] {dist} to {start+i+2+dist:08X}")
-            _hex = bytearray()
-            i += 1
-        elif byte == b'\x74' :
-            read = f.read(1)
-            _hex += read
-            dist = int.from_bytes(read, byteorder='little', signed=True)
-            callback(start+i, _hex, f"JE [near] {dist} to {start+i+2+dist:08X}")
-            _hex = bytearray()
-            i += 1
-        elif byte == b'\x75' :
-            read = f.read(1)
-            _hex += read
-            dist = int.from_bytes(read, byteorder='little', signed=True)
-            callback(start+i, _hex, f"JNE [near] {dist} to {start+i+2+dist:08X}")
-            _hex = bytearray()
-            i += 1
-        elif byte == b'\x76' :
-            read = f.read(1)
-            _hex += read
-            dist = int.from_bytes(read, byteorder='little', signed=True)
-            callback(start+i, _hex, f"JNA [near] {dist} to {start+i+2+dist:08X}")
-            _hex = bytearray()
-            i += 1
-        elif byte == b'\x77' :
-            read = f.read(1)
-            _hex += read
-            dist = int.from_bytes(read, byteorder='little', signed=True)
-            callback(start+i, _hex, f"JA [near] {dist} to {start+i+2+dist:08X}")
-            _hex = bytearray()
-            i += 1
-        elif byte == b'\x7B' :
-            read = f.read(1)
-            _hex += read
-            dist = int.from_bytes(read, byteorder='little', signed=True)
-            callback(start+i, _hex, f"JNP [near] {dist} to {start+i+2+dist:08X}")
-            _hex = bytearray()
-            i += 1
-        elif byte == b'\x7C' :
-            read = f.read(1)
-            _hex += read
-            dist = int.from_bytes(read, byteorder='little', signed=True)
-            callback(start+i, _hex, f"JL [near] {dist} to {start+i+2+dist:08X}")
-            _hex = bytearray()
-            i += 1
-        elif byte == b'\x7D' :
-            read = f.read(1)
-            _hex += read
-            dist = int.from_bytes(read, byteorder='little', signed=True)
-            callback(start+i, _hex, f"JNL [near] {dist} to {start+i+2+dist:08X}")
-            _hex = bytearray()
-            i += 1
-        elif byte == b'\x7E' :
-            read = f.read(1)
-            _hex += read
-            dist = int.from_bytes(read, byteorder='little', signed=True)
-            callback(start+i, _hex, f"JLE [near] {dist} to {start+i+2+dist:08X}")
-            _hex = bytearray()
-            i += 1
-        elif byte == b'\x7F' :
-            read = f.read(1)
-            _hex += read
-            dist = int.from_bytes(read, byteorder='little', signed=True)
-            callback(start+i, _hex, f"JG [near] {dist} to {start+i+2+dist:08X}")
-            _hex = bytearray()
-            i += 1
         elif byte == b'\x84' :
             byte = f.read(1)
             _hex += byte
@@ -1213,255 +1890,6 @@ def functatasdt () :
                 _hex = bytearray()
             elif byte == b'\xFF' :
                 callback(start+i, _hex, f"TEST edi, edi")
-                _hex = bytearray()
-            i += 1
-        elif byte == b'\x88' :
-            byte = f.read(1)
-            _hex += byte
-            if byte == b'\x07' :
-                callback(start+i, _hex, f"MOV [edi], al")
-                _hex = bytearray()
-            elif byte == b'\x10' :
-                callback(start+i, _hex, f"MOV [eax], dl")
-                _hex = bytearray()
-            elif byte == b'\x11' :
-                callback(start+i, _hex, f"MOV [ecx], dl")
-                _hex = bytearray()
-            elif byte == b'\x18' :
-                callback(start+i, _hex, f"MOV [eax], bl")
-                _hex = bytearray()
-            elif byte == b'\x1C' :
-                byte = f.read(1)
-                _hex += byte
-                if byte == b'\x01' :
-                    callback(start+i, _hex, f"MOV [ecx+eax], bl")
-                    _hex = bytearray()
-                i += 1
-            elif byte == b'\x47' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"MOV [edi+{number}], al")
-                _hex = bytearray()
-                i += 1
-            i += 1
-        elif byte == b'\x89' :
-            byte = f.read(1)
-            _hex += byte
-            if byte == b'\x06' :
-                callback(start+i, _hex, f"MOV [esi], eax")
-                _hex = bytearray()
-            elif byte == b'\x30' :
-                callback(start+i, _hex, f"MOV [eax], esi")
-                _hex = bytearray()
-            elif byte == b'\x44' :
-                byte = f.read(1)
-                _hex += byte
-                if byte == b'\x8F' :
-                    read = f.read(1)
-                    _hex += read
-                    number = int.from_bytes(read, byteorder='little', signed=True)
-                    callback(start+i, _hex, f"MOV [edi+ecx*4+{number}], eax")
-                    _hex = bytearray()
-                    i += 1
-                i += 1
-            elif byte == b'\x45' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"MOV [ebp+{number}], eax")
-                _hex = bytearray()
-                i += 1
-            i += 1
-        elif byte == b'\x8A' :
-            byte = f.read(1)
-            _hex += byte
-            if byte == b'\x06' :
-                callback(start+i, _hex, f"MOV al, [esi]")
-                _hex = bytearray()
-            elif byte == b'\x10' :
-                callback(start+i, _hex, f"MOV dl, [eax]")
-                _hex = bytearray()
-            elif byte == b'\x14' :
-                byte = f.read(1)
-                _hex += byte
-                if byte == b'\x01' :
-                    callback(start+i, _hex, f"MOV bl, [eax]")
-                    _hex = bytearray()
-                i += 1
-            elif byte == b'\x18' :
-                callback(start+i, _hex, f"MOV bl, [eax]")
-                _hex = bytearray()
-            elif byte == b'\x19' :
-                callback(start+i, _hex, f"MOV bl, [ecx]")
-                _hex = bytearray()
-            elif byte == b'\x44' :
-                byte = f.read(1)
-                _hex += byte
-                if byte == b'\x24' :
-                    read = f.read(1)
-                    _hex += read
-                    number = int.from_bytes(read, byteorder='little', signed=True)
-                    callback(start+i, _hex, f"MOV al, [esp+{number}]")
-                    _hex = bytearray()
-                    i += 1
-                i += 1
-            elif byte == b'\x46' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"MOV al, [esi+{number}]")
-                _hex = bytearray()
-                i += 1
-            i += 1
-        elif byte == b'\x8B' :
-            byte = f.read(1)
-            _hex += byte
-            if byte == b'\x3D' :
-                read = f.read(4)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"MOV edi, [{number}]")
-                _hex = bytearray()
-                i += 4
-            elif byte == b'\x44' :
-                byte = f.read(1)
-                _hex += byte
-                if byte == b'\x24' :
-                    read = f.read(1)
-                    _hex += read
-                    number = int.from_bytes(read, byteorder='little', signed=True)
-                    callback(start+i, _hex, f"MOV eax, [esp+{number}]")
-                    _hex = bytearray()
-                    i += 1
-                elif byte == b'\x8E' :
-                    read = f.read(1)
-                    _hex += read
-                    number = int.from_bytes(read, byteorder='little', signed=True)
-                    callback(start+i, _hex, f"MOV eax, [esi+ecx*4+{number}]")
-                    _hex = bytearray()
-                    i += 1
-                i += 1
-            elif byte == b'\x45' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"MOV eax, [ebp+{number}]")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\x4C' :
-                byte = f.read(1)
-                _hex += byte
-                if byte == b'\x24' :
-                    read = f.read(1)
-                    _hex += read
-                    number = int.from_bytes(read, byteorder='little', signed=True)
-                    callback(start+i, _hex, f"MOV ecx, [esp+{number}]")
-                    _hex = bytearray()
-                    i += 1
-                i += 1
-            elif byte == b'\x4D' :
-                read = f.read(1)
-                _hex += read
-                dist = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"MOV ecx, [ebp + {dist}]")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\x54' :
-                byte = f.read(1)
-                _hex += byte
-                if byte == b'\x24' :
-                    read = f.read(1)
-                    _hex += read
-                    number = int.from_bytes(read, byteorder='little', signed=True)
-                    callback(start+i, _hex, f"MOV edx, [esp+{number}]")
-                    _hex = bytearray()
-                    i += 1
-                i += 1
-            elif byte == b'\x55' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"MOV edx, [ebp+{number}]")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\x5D' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"MOV ebx, [ebp+{number}]")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\x75' :
-                read = f.read(1)
-                _hex += read
-                dist = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"MOV esi, [ebp + {dist}]")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\x7D' :
-                read = f.read(1)
-                _hex += read
-                dist = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"MOV edi, [ebp + {dist}]")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xC1' :
-                callback(start+i, _hex, f"MOV eax, ecx")
-                _hex = bytearray()
-            elif byte == b'\xC3' :
-                callback(start+i, _hex, f"MOV eax, ebx")
-                _hex = bytearray()
-            elif byte == b'\xC6' :
-                callback(start+i, _hex, f"MOV eax, esi")
-                _hex = bytearray()
-            elif byte == b'\xC7' :
-                callback(start+i, _hex, f"MOV eax, edi")
-                _hex = bytearray()
-            elif byte == b'\xC8' :
-                callback(start+i, _hex, f"MOV ecx, eax")
-                _hex = bytearray()
-            elif byte == b'\xCA' :
-                callback(start+i, _hex, f"MOV ecx, edx")
-                _hex = bytearray()
-            elif byte == b'\xCB' :
-                callback(start+i, _hex, f"MOV ecx, ebx")
-                _hex = bytearray()
-            elif byte == b'\xD1' :
-                callback(start+i, _hex, f"MOV edx, ecx")
-                _hex = bytearray()
-            elif byte == b'\xD8' :
-                callback(start+i, _hex, f"MOV ebx, eax")
-                _hex = bytearray()
-            elif byte == b'\xDA' :
-                callback(start+i, _hex, f"MOV ebx, eax")
-                _hex = bytearray()
-            elif byte == b'\xDE' :
-                callback(start+i, _hex, f"MOV ebx, esi")
-                _hex = bytearray()
-            elif byte == b'\xE5' :
-                callback(start+i, _hex, f"MOV esp, ebp")
-                _hex = bytearray()
-            elif byte == b'\xEC' :
-                callback(start+i, _hex, f"MOV ebx, edx")
-                _hex = bytearray()
-            elif byte == b'\xF0' :
-                callback(start+i, _hex, f"MOV esi, eax")
-                _hex = bytearray()
-            elif byte == b'\xF1' :
-                callback(start+i, _hex, f"MOV esi, ecx")
-                _hex = bytearray()
-            elif byte == b'\xF2' :
-                callback(start+i, _hex, f"MOV esi, edx")
-                _hex = bytearray()
-            elif byte == b'\xF8' :
-                callback(start+i, _hex, f"MOV edi, eax")
-                _hex = bytearray()
-            elif byte == b'\xF9' :
-                callback(start+i, _hex, f"MOV edi, ecx")
-                _hex = bytearray()
-            elif byte == b'\xFF' :
-                callback(start+i, _hex, f"nop <2>")
                 _hex = bytearray()
             i += 1
         elif byte == b'\x8D' :
@@ -1624,9 +2052,7 @@ def functatasdt () :
         elif byte == b'\xC9' :
             callback(start+i, _hex, f"LEAVE")
             _hex = bytearray()
-        elif byte == b'\xCC' :
-            callback(start+i, _hex, f"INT3")
-            _hex = bytearray()
+        
         elif byte == b'\xD1' :
             byte = f.read(1)
             _hex += byte
@@ -1753,13 +2179,7 @@ def functatasdt () :
             _hex = bytearray()
             i += 1
 
-        elif byte == b'\xE9' :
-            read = f.read(4)
-            _hex += read
-            dist = int.from_bytes(read, byteorder='little', signed=True)
-            callback(start+i, _hex, f"JMP [called near?] {dist} to {start+i+5+dist:08X}")
-            _hex = bytearray()
-            i += 4
+        
         elif byte == b'\xEB' :
             read = f.read(1)
             _hex += read
@@ -1773,31 +2193,7 @@ def functatasdt () :
         elif byte == b'\xF4' :
             callback(start+i, _hex, f"HLT")
             _hex = bytearray()
-        elif byte == b'\xF6' :
-            byte = f.read(1)
-            _hex += byte
-            if byte == b'\xC4' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"TEST ah, {number}")
-                _hex = bytearray()
-                i += 1
-            i += 1
-        elif byte == b'\xF7' :
-            byte = f.read(1)
-            _hex += byte
-            if byte == b'\xC7' :
-                read = f.read(4)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"TEST edi, {number}")
-                _hex = bytearray()
-                i += 4
-            elif byte == b'\xD9' :
-                callback(start+i, _hex, f"NEG ecx")
-                _hex = bytearray()
-            i += 1
+
         elif byte == b'\xFC' :
             callback(start+i, _hex, f"CLD")
             _hex = bytearray()
@@ -2112,6 +2508,6 @@ for file in stream_dir_exe_gen() :
                 EntryPoint = AddressOfEntryPoint-VirtualAddress+PointerToRawData
                 print(f"> Found Entrypoint {EntryPoint:X} in section '{Name}' ({VirtualAddress}-{VirtualAddress+VirtualSize})")
                 file_disassembler = Disassembler_x86(f)
-                file_disassembler.disassemble(EntryPoint, EntryPoint+3000)
+                file_disassembler.disassemble(EntryPoint, EntryPoint+300)
         print()
         break
