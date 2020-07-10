@@ -26,25 +26,6 @@ def hexview_line_gen ( f, start, limit = -1 ) :
         
         i += 16
 
-counter = 0
-def opcode_print ( pos, hex, text = "" ) :
-    global counter
-    if not text.startswith("UNKNOWN"):
-        print(f"{counter:4} {pos:08X}: {hex:48} {text}")
-        counter += 1
-
-def ModRM ( byte ) -> (int, int, int) :
-    mod = (ord(byte) & 0b11000000) >> 6
-    reg = (ord(byte) & 0b00111000) >> 3
-    rm  =  ord(byte) & 0b00000111
-    return mod, reg, rm
-
-def SIB ( byte ) -> (int, int, int) : # yes, technically the same as ModRM
-    scale = (ord(byte) & 0b11000000) >> 6
-    index = (ord(byte) & 0b00111000) >> 3
-    base  =  ord(byte) & 0b00000111
-    return scale, index, base
-
 def Register ( type, ref ) -> str :
     print(f"Get reg ({type}, {ref})")
     return [
@@ -66,494 +47,591 @@ def Register ( type, ref ) -> str :
         ["r15l", "r15w", "r15d", "r15", "-",   "mmx7", "xmm15", "ymm15", "-",  "cr15", "dr15"]
     ][ref][type]
 
-class Disassembler_x86 :
-
-    # init: stream |- read(size:int) -> byte
-    #              |- seek(dist:int)
-    # state:{pos:int}
-
-    opcode_tree = [
-        [   [   [   [   [                                                       # 00-07: ADD, ES
-                                        {'name': 'ADD'},                            # 00:ds   00 0 00 0ds       | ADD
-                            [           {'name': 'acc ADD'},                        # 04:s    00 0 00 10s       | acc ADD
-                                [       {'name': 'PUSH ES'},                        # 06      00 0 00 110       | PUSH ES
-                                        {'name': 'POP ES'}]]                        # 07      00 0 00 111       | POP ES
-                        ],[                                                     # 08-0F: OR, CS
-                                        {'name': 'OR'},                             # 08:ds   00 0 01 0ds       | OR
-                            [           {'name': 'acc OR'},                         # 0C:s    00 0 01 10s       | acc OR
-                                [       {'name': 'PUSH CS'},                        # 0E      00 0 01 110       | PUSH CS
-                                        {'name': 'IS 0F'}]]]                        # 0F      00 0 01 111       | Instruction set switch
-                    ],[ [                                                       # 10-17: ADC, SS
-                                        {'name': 'ADC'},                            # 10:ds   00 0 10 0ds       | ADC
-                            [           {'name': 'acc ADC'},                        # 14:s    00 0 10 10s       | acc ADC
-                                [       {'name': 'PUSH SS'},                        # 16      00 0 10 110       | PUSH SS
-                                        {'name': 'POP SS'}]]                        # 17      00 0 10 111       | POP SS
-                        ],[                                                 # 18-1F: SBB, DS
-                                        {'name': 'SBB'},                            # 18:ds   00 0 11 0ds       | SBB
-                            [           {'name': 'acc SBB'},                        # 1C:s    00 0 11 10s       | acc SSB
-                                [       {'name': 'PUSH DS'},                        # 1E      00 0 11 110       | PUSH DS
-                                        {'name': 'POP DS'}]]]]                      # 1F      00 0 11 111       | POP DS
-                ],[ [   [                                                       # 20-27: AND, ESo DDA
-                                        {'name': 'AND'},                            # 20:ds   00 1 00 0ds       | AND
-                            [           {'name': 'acc AND'},                        # 24:s    00 1 00 10s       | acc AND
-                                [       {'name': 'ES override'},                    # 26      00 1 00 110       | ES override
-                                        {'name': 'acc DAA'}]]                       # 27      00 1 00 111       | DAA AL
-                        ],[                                                     # 28-2F: SUB, CSo DAS
-                                        {'name': 'SUB'},                            # 28:ds   00 1 01 0ds       | SUB
-                            [           {'name': 'acc SUB'},                        # 2C:s    00 1 01 10s       | acc SUB
-                                [       {'name': 'CS override'},                    # 2E      00 1 01 110       | CS override
-                                        {'name': 'acc DAS'}]]]                      # 2F      00 1 01 111       | DAS AL
-                    ],[ [                                                       # 30-37: XOR, SSo AAA
-                                        {'name': 'XOR'},                            # 30:ds   00 1 10 0ds       | XOR
-                            [           {'name': 'acc XOR'},                        # 34:s    00 1 10 10s       | acc XOR
-                                [       {'name': 'SS override'},                    # 36      00 1 10 110       | SS override
-                                        {'name': 'acc AAA'}]]                       # 37      00 1 10 111       | AAA AL
-                        ],[                                                     # 38-3F: CMP, DSo AAS
-                                        {'name': 'CMP'},                            # 38:ds   00 1 11 0ds       | CMP
-                            [           {'name': 'acc CMP'},                        # 3C:s    00 1 11 10s       | acc CMP
-                                [       {'name': 'DS override'},                    # 3E      00 1 11 110       | DS override 
-                                        {'name': 'acc AAS'}]]]]]                    # 3F      00 1 11 111       | AAS AL
-            ],[ [                                                               # 40-5F: reg operations
-                            [           {'name': 'INC reg'},                        # 40:reg  010 00 reg        | INC reg
-                                        {'name': 'DEC reg'}                         # 48:reg  010 01 reg        | DEC reg
-                            ],[         {'name': 'PUSH reg'},                       # 50:reg  010 10 reg        | PUSH reg
-                                        {'name': 'POP reg'}]                        # 58:reg  010 11 reg        | POP reg
-                ],[ [   [   [   [                                               # 60-67
-                                        {'name': 'PUSHA'},                          # 60      011000 00         | PUSHA
-                                        {'name': 'POPA'}                            # 61      011000 01         | POPA
-                                ],[     {'name': 'BOUND'},                          # 62      011000 10         | BOUND
-                                        {'name': 'ARPL'}]                           # 63      011000 11         | ARPL
-                            ],[ [                                               # 64-67: Prefixes
-                                        {'name': 'FS override'},                    # 64      011001 00         | FS override
-                                        {'name': 'GS override'}                     # 65      011001 01         | GS override
-                                ],[
-                                        {'name': 'Operand-size override'},          # 66      011001 10         | Operand-size override
-                                        {'name': 'Address-size override'}]]         # 67      011001 11         | Address-size override
-                        ],[                                                     # 68-6B
-                                        # 68:~s-  011010 s0         | PUSH const
-                                        # 69:~s-  011010 s1         | IMUL const
-                                    # 6C-6F: Port IO
-                                        # 6C:s    011011 0 s        | INS
-                                        # 6E:s    011011 1 s        | OUTS
-                        ]
-                    ],                  {'name': 'COND JMP'}        # 70-7F: Jumps
-                                                                        # 70      0111 0000         | JO          (OF=1)
-                                                                        # 71      0111 0001         | JNO         (OF=0)
-                                                                        # 72      0111 0010         | JB JNAE JC  (CF=1)			
-                                                                        # 73      0111 0011         | JNB JAE JNC (CF=0)
-                                                                        # 74      0111 0100         | JZ JE       (ZF=1)
-                                                                        # 75      0111 0101         | JNZ JNE     (ZF=0)
-                                                                        # 76      0111 0110         | JBE JNA     (CF=1 OR ZF=1)
-                                                                        # 77      0111 0111         | JNBE JA     (CF=0 AND ZF=0)
-                                                                        # 78      0111 1000         | JS          (SF=1)
-                                                                        # 79      0111 1001         | JNS         (SF=0)
-                                                                        # 7A      0111 1010         | JP JPE      (PF=1)
-                                                                        # 7B      0111 1011         | JNP JPO     (PF=0)
-                                                                        # 7C      0111 1100         | JL JNGE     (SF!=OF)
-                                                                        # 7D      0111 1101         | JNL JGE     (SF=OF)
-                                                                        # 7E      0111 1110         | JLE JNG     ((ZF=1) OR (SF!=OF))
-                                                                        # 7F      0111 1111         | JNLE JG     ((ZF=0) AND (SF=OF))
-                ]
-            ]
-        ], # 1
-            [   [   [            # 100
-                    
-                ], [         # 101
-
-                ]
-            ],  [   [            # 110
-                
-                ], [         # 111
-                
-                ]
-            ]
-        ]
-
-
-        # 80-83: Immediate
-            # 80:xs/0 100000 xs r000   | ADD const
-            # 80:xd/1 100000 xs r001   | OR const
-            # 80:xs/2 100000 xs r010   | ADC const
-            # 80:xs/3 100000 xs r011   | SBB const
-            # 80:xs/4 100000 xs r100   | AND const
-            # 80:xs/5 100000 xs r101   | SUB const
-            # 80:xs/6 100000 xs r110   | XOR const
-            # 80:xs/7 100000 xs r111   | CMP const
-
-        # 84:s    1000010 s       | TEST
-        # 86:s    1000011 s       | XCHG
-        # 88:ds   100010 ds       | MOV
-        # 8C:d-   1000 11d0       | MOV segreg
-        # 8D      1000 1101       | LEA
-        # 8F/0    1000 1111 r000  | POP reg
-        # 90:reg  10010 reg       | XCHG reg
-
-        # 98 CBW
-        # 99 CWD
-        # 9A CALLF
-        # 9B WAIT
-        # 9C PUSHF
-        # 9D POPF
-        # 9E SAHF
-        # 9F LAHF
-
-        # A0:ds   1010 00ds  | acc MOV offset
-
-        # A4:s    1010 010s       | MOVS
-        # A6:s    1010 011s       | CMPS
-        # A8:s    1010 100s       | acc TEST
-        # AA:s    1010 101s       | STOS
-        # AC:s    1010 110s       | LODS
-        # AE:s    1010 111s       | SCAS
-
-        # Bs:reg  1011 s reg      | MOV reg
-
-        # C0:s/0  1100 000s r000  | ROL
-        # C0:s/1  1100 000s r001  | ROR
-        # C0:s/2  1100 000s r010  | RCL
-        # C0:s/3  1100 000s r011  | RCR
-        # C0:s/4  1100 000s r100  | SHL
-        # C0:s/5  1100 000s r101  | SHR
-        # C0:s/6  1100 000s r110  | SAL
-        # C0:s/7  1100 000s r111  | SAR
-
-        # C2 RET var
-        # C3 RET
-
-        # C4 LES
-        # C5 LDS
-
-        # C6:s/0  1100 011s r000  | MOV const
-
-        # C8 ENTER
-        # C9 LEAVE
-
-        # CA RETF var
-        # CB RETF
-        # CC INT3
-        # CD INT
-        # CE INTO
-        # CD IRET
-
-        # D0:xs/0 1101 00xs r000  | ROL 1/x
-        # D0:xs/1 1101 00xs r001  | ROR 1/x
-        # D0:xs/2 1101 00xs r010  | RCL 1/x
-        # D0:xs/3 1101 00xs r011  | RCR 1/x
-        # D0:xs/4 1101 00xs r100  | SHL 1/x
-        # D0:xs/5 1101 00xs r101  | SHR 1/x
-        # D0:xs/6 1101 00xs r110  | SAL 1/x
-        # D0:xs/7 1101 00xs r111  | SAR 1/x
-
-        # D4 AMX
-        # D5 ADX
-        # D6 SALC
-        # D7 XLAT
-        # D8/0 FADD
-        # D8/1 FMUL
-        # D8/2 FCOM
-        # D8/3 FCOMP
-        # D8/4 FSUB
-        # D8/5 FSUBR
-        # D8/6 FDIV
-        # D8/7 FDIVR
-
-        # D9/0 FLD
-        # D9/1 FXCH
-        # D9/2 FST
-        # D9/3 FSTP
-        # D9/4 FLDENV
-        # D9/5 FLDCW
-        # D9/6 FNSTENV
-        # D9/7 FSTCW
-
-
-        # F6:s/0  1111 011s r000  | TEST
-        # F6:s/2  1111 011s r010  | NOT
-        # F6:s/3  1111 011s r011  | NEG
-        # FE:s/0  1111 111s r000  | INC mem
-        # FE:s/1  1111 111s r001  | DEC mem
-        # FF/4    1111 1111 r100  | JMP reg
-        # FF/5    1111 1111 r101  | JMP mem
-        # FF/6    1111 1111 r110  | PUSH reg
-    ]
+class Disassembler_x86:
 
     def __init__ ( self, stream ) :
         self.stream = stream
-        self.state = {'pos': 0}
-    
+        self.pos = 0
+        self.parsetable = [
+            # 00-07: ADD, ES
+                # 00:ds   00 0 00 0ds       | ADD
+                    self.ADD,                   # 00
+                    self.ADD,                   # 01
+                    self.ADD,                   # 02
+                    self.ADD,                   # 03
+                # 04:s    00 0 00 10s       | acc ADD
+                    self.UNKNOWN_OPCODE,        # 04
+                    self.UNKNOWN_OPCODE,        # 05
+                # 06      00 0 00 110       | PUSH ES
+                    self.UNKNOWN_OPCODE,        # 06
+                # 07      00 0 00 111       | POP ES
+                    self.UNKNOWN_OPCODE,        # 07
+            # 08-0F: OR, CS
+                # 08:ds   00 0 01 0ds       | OR
+                    self.UNKNOWN_OPCODE,        # 08
+                    self.UNKNOWN_OPCODE,        # 09
+                    self.UNKNOWN_OPCODE,        # 0A
+                    self.UNKNOWN_OPCODE,        # 0B
+                # 0C:s    00 0 01 10s       | acc OR
+                    self.UNKNOWN_OPCODE,        # 0C
+                    self.UNKNOWN_OPCODE,        # 0D
+                # 0E      00 0 01 110       | PUSH CS
+                    self.UNKNOWN_OPCODE,        # 0E
+                # 0F      00 0 01 111       | Instruction set switch
+                    self.UNKNOWN_OPCODE,        # 0F
+            # 10-17: ADC, SS
+                # 10:ds   00 0 10 0ds       | ADC
+                    self.UNKNOWN_OPCODE,        # 10
+                    self.UNKNOWN_OPCODE,        # 11
+                    self.UNKNOWN_OPCODE,        # 12
+                    self.UNKNOWN_OPCODE,        # 13
+                # 14:s    00 0 10 10s       | acc ADC
+                    self.UNKNOWN_OPCODE,        # 14
+                    self.UNKNOWN_OPCODE,        # 15
+                # 16      00 0 10 110       | PUSH SS
+                    self.UNKNOWN_OPCODE,        # 16
+                # 17      00 0 10 111       | POP SS
+                    self.UNKNOWN_OPCODE,        # 17
+            # 18-1F: SBB, DS
+                # 18:ds   00 0 11 0ds       | SBB
+                    self.UNKNOWN_OPCODE,        # 18
+                    self.UNKNOWN_OPCODE,        # 19
+                    self.UNKNOWN_OPCODE,        # 1A
+                    self.UNKNOWN_OPCODE,        # 1B
+                # 1C:s    00 0 11 10s       | acc SSB
+                    self.UNKNOWN_OPCODE,        # 1C
+                    self.UNKNOWN_OPCODE,        # 1D
+                # 1E      00 0 11 110       | PUSH DS
+                    self.UNKNOWN_OPCODE,        # 1E
+                # 1F      00 0 11 111       | POP DS
+                    self.UNKNOWN_OPCODE,        # 1F
+            # 20-27: AND, ESo DDA
+                # 20:ds   00 1 00 0ds       | AND
+                    self.UNKNOWN_OPCODE,        # 20
+                    self.UNKNOWN_OPCODE,        # 21
+                    self.UNKNOWN_OPCODE,        # 22
+                    self.UNKNOWN_OPCODE,        # 23
+                # 24:s    00 1 00 10s       | acc AND
+                    self.UNKNOWN_OPCODE,        # 24
+                    self.UNKNOWN_OPCODE,        # 25
+                # 26      00 1 00 110       | ES override
+                    self.UNKNOWN_OPCODE,        # 26
+                # 27      00 1 00 111       | DAA AL
+                    self.UNKNOWN_OPCODE,        # 27
+            # 28-2F: SUB, CSo DAS
+                # 28:ds   00 1 01 0ds       | SUB
+                    self.UNKNOWN_OPCODE,        # 28
+                    self.UNKNOWN_OPCODE,        # 29
+                    self.UNKNOWN_OPCODE,        # 2A
+                    self.UNKNOWN_OPCODE,        # 2B
+                # 2C:s    00 1 01 10s       | acc SUB
+                    self.UNKNOWN_OPCODE,        # 2C
+                    self.UNKNOWN_OPCODE,        # 2D
+                # 2E      00 1 01 110       | CS override
+                    self.UNKNOWN_OPCODE,        # 2E
+                # 2F      00 1 01 111       | DAS AL
+                    self.UNKNOWN_OPCODE,        # 2F
+            # 30-37: XOR, SSo AAA
+                # 30:ds   00 1 10 0ds       | XOR
+                    self.UNKNOWN_OPCODE,        # 30
+                    self.UNKNOWN_OPCODE,        # 31
+                    self.UNKNOWN_OPCODE,        # 32
+                    self.UNKNOWN_OPCODE,        # 33
+                # 34:s    00 1 10 10s       | acc XOR
+                    self.UNKNOWN_OPCODE,        # 34
+                    self.UNKNOWN_OPCODE,        # 35
+                # 36      00 1 10 110       | SS override
+                    self.UNKNOWN_OPCODE,        # 36
+                # 37      00 1 10 111       | AAA AL
+                    self.UNKNOWN_OPCODE,        # 37
+            # 38-3F: CMP, DSo AAS
+                # 38:ds   00 1 11 0ds       | CMP
+                    self.UNKNOWN_OPCODE,        # 38
+                    self.UNKNOWN_OPCODE,        # 39
+                    self.UNKNOWN_OPCODE,        # 3A
+                    self.UNKNOWN_OPCODE,        # 3B
+                # 3C:s    00 1 11 10s       | acc CMP
+                    self.UNKNOWN_OPCODE,        # 3C
+                    self.UNKNOWN_OPCODE,        # 3D
+                # 3E      00 1 11 110       | DS override
+                    self.UNKNOWN_OPCODE,        # 3E
+                # 3F      00 1 11 111       | AAS AL
+                    self.UNKNOWN_OPCODE,        # 3F
+            # 40-5F: reg operations
+                # 40:reg  010 00 reg        | INC reg
+                    self.UNKNOWN_OPCODE,        # 40
+                    self.UNKNOWN_OPCODE,        # 41
+                    self.UNKNOWN_OPCODE,        # 42
+                    self.UNKNOWN_OPCODE,        # 43
+                    self.UNKNOWN_OPCODE,        # 44
+                    self.UNKNOWN_OPCODE,        # 45
+                    self.UNKNOWN_OPCODE,        # 46
+                    self.UNKNOWN_OPCODE,        # 47
+                # 48:reg  010 01 reg        | DEC reg
+                    self.UNKNOWN_OPCODE,        # 48
+                    self.UNKNOWN_OPCODE,        # 49
+                    self.UNKNOWN_OPCODE,        # 4A
+                    self.UNKNOWN_OPCODE,        # 4B
+                    self.UNKNOWN_OPCODE,        # 4C
+                    self.UNKNOWN_OPCODE,        # 4D
+                    self.UNKNOWN_OPCODE,        # 4E
+                    self.UNKNOWN_OPCODE,        # 4F
+                # 50:reg  010 10 reg        | PUSH reg
+                    self.UNKNOWN_OPCODE,        # 50
+                    self.UNKNOWN_OPCODE,        # 51
+                    self.UNKNOWN_OPCODE,        # 52
+                    self.UNKNOWN_OPCODE,        # 53
+                    self.UNKNOWN_OPCODE,        # 54
+                    self.UNKNOWN_OPCODE,        # 55
+                    self.UNKNOWN_OPCODE,        # 56
+                    self.UNKNOWN_OPCODE,        # 57
+                # 58:reg  010 11 reg        | POP reg
+                    self.UNKNOWN_OPCODE,        # 58
+                    self.UNKNOWN_OPCODE,        # 59
+                    self.UNKNOWN_OPCODE,        # 5A
+                    self.UNKNOWN_OPCODE,        # 5B
+                    self.UNKNOWN_OPCODE,        # 5C
+                    self.UNKNOWN_OPCODE,        # 5D
+                    self.UNKNOWN_OPCODE,        # 5E
+                    self.UNKNOWN_OPCODE,        # 5F
+            # 60-67
+                # 60      011000 00         | PUSHA
+                    self.UNKNOWN_OPCODE,        # 60
+                # 61      011000 01         | POPA
+                    self.UNKNOWN_OPCODE,        # 61
+                # 62      011000 10         | BOUND
+                    self.UNKNOWN_OPCODE,        # 62
+                # 63      011000 11         | ARPL
+                    self.UNKNOWN_OPCODE,        # 63
+            # 64-67: Prefixes
+                # 64      011001 00         | FS override
+                    self.UNKNOWN_OPCODE,        # 64
+                # 65      011001 01         | GS override
+                    self.UNKNOWN_OPCODE,        # 65
+                # 66      011001 10         | Operand-size override
+                    self.UNKNOWN_OPCODE,        # 66
+                # 67      011001 11         | Address-size override
+                    self.UNKNOWN_OPCODE,        # 67
+            # 68-6B
+                # 68:~s-  011010 s0         | PUSH const
+                    self.UNKNOWN_OPCODE,        # 68
+                # 69:~s-  011010 s1         | IMUL const
+                    self.UNKNOWN_OPCODE,        # 69
+
+                    self.UNKNOWN_OPCODE,        # 6A
+                    self.UNKNOWN_OPCODE,        # 6B
+            # 6C-6F: Port IO
+                # 6C:s    011011 0 s        | INS
+                    self.UNKNOWN_OPCODE,        # 6C
+                    self.UNKNOWN_OPCODE,        # 6D
+                # 6E:s    011011 1 s        | OUTS
+                    self.UNKNOWN_OPCODE,        # 6E
+                    self.UNKNOWN_OPCODE,        # 6F
+            # 70-7F: Jumps
+                # 70      0111 0000         | JO          (OF=1)
+                    self.UNKNOWN_OPCODE,        # 70
+                # 71      0111 0001         | JNO         (OF=0)
+                    self.UNKNOWN_OPCODE,        # 71
+                # 72      0111 0010         | JB JNAE JC  (CF=1)			
+                    self.UNKNOWN_OPCODE,        # 72
+                # 73      0111 0011         | JNB JAE JNC (CF=0)
+                    self.UNKNOWN_OPCODE,        # 73
+                # 74      0111 0100         | JZ JE       (ZF=1)
+                    self.UNKNOWN_OPCODE,        # 74
+                # 75      0111 0101         | JNZ JNE     (ZF=0)
+                    self.UNKNOWN_OPCODE,        # 75
+                # 76      0111 0110         | JBE JNA     (CF=1 OR ZF=1)
+                    self.UNKNOWN_OPCODE,        # 76
+                # 77      0111 0111         | JNBE JA     (CF=0 AND ZF=0)
+                    self.UNKNOWN_OPCODE,        # 77
+                # 78      0111 1000         | JS          (SF=1)
+                    self.UNKNOWN_OPCODE,        # 78
+                # 79      0111 1001         | JNS         (SF=0)
+                    self.UNKNOWN_OPCODE,        # 79
+                # 7A      0111 1010         | JP JPE      (PF=1)
+                    self.UNKNOWN_OPCODE,        # 7A
+                # 7B      0111 1011         | JNP JPO     (PF=0)
+                    self.UNKNOWN_OPCODE,        # 7B
+                # 7C      0111 1100         | JL JNGE     (SF!=OF)
+                    self.UNKNOWN_OPCODE,        # 7C
+                # 7D      0111 1101         | JNL JGE     (SF=OF)
+                    self.UNKNOWN_OPCODE,        # 7D
+                # 7E      0111 1110         | JLE JNG     ((ZF=1) OR (SF!=OF))
+                    self.UNKNOWN_OPCODE,        # 7E
+                # 7F      0111 1111         | JNLE JG     ((ZF=0) AND (SF=OF))
+                    self.UNKNOWN_OPCODE,        # 7F
+            # 80-83: Immediate
+                # 80:xs/0 100000 xs r000   | ADD const
+                # 80:xd/1 100000 xs r001   | OR const
+                # 80:xs/2 100000 xs r010   | ADC const
+                # 80:xs/3 100000 xs r011   | SBB const
+                # 80:xs/4 100000 xs r100   | AND const
+                # 80:xs/5 100000 xs r101   | SUB const
+                # 80:xs/6 100000 xs r110   | XOR const
+                # 80:xs/7 100000 xs r111   | CMP const
+                    self.UNKNOWN_OPCODE,        # 80
+                    self.UNKNOWN_OPCODE,        # 81
+                    self.UNKNOWN_OPCODE,        # 82
+                    self.UNKNOWN_OPCODE,        # 83
+
+                # 84:s    1000010 s       | TEST
+                    self.UNKNOWN_OPCODE,        # 84
+                    self.UNKNOWN_OPCODE,        # 85
+                # 86:s    1000011 s       | XCHG
+                    self.UNKNOWN_OPCODE,        # 86
+                    self.UNKNOWN_OPCODE,        # 87
+                # 88:ds   100010 ds       | MOV
+                    self.UNKNOWN_OPCODE,        # 88
+                    self.UNKNOWN_OPCODE,        # 89
+                    self.UNKNOWN_OPCODE,        # 8A
+                    self.UNKNOWN_OPCODE,        # 8B
+                # 8C:d-   1000 11d0       | MOV segreg
+                    self.UNKNOWN_OPCODE,        # 8C
+                # 8D      1000 1101       | LEA
+                    self.UNKNOWN_OPCODE,        # 8D
+                    
+                    self.UNKNOWN_OPCODE,        # 8E
+                # 8F/0    1000 1111 r000  | POP reg
+                    self.UNKNOWN_OPCODE,        # 8F
+                # 90:reg  10010 reg       | XCHG reg
+                    self.UNKNOWN_OPCODE,        # 90
+                    self.UNKNOWN_OPCODE,        # 91
+                    self.UNKNOWN_OPCODE,        # 92
+                    self.UNKNOWN_OPCODE,        # 93
+                    self.UNKNOWN_OPCODE,        # 94
+                    self.UNKNOWN_OPCODE,        # 95
+                    self.UNKNOWN_OPCODE,        # 96
+                    self.UNKNOWN_OPCODE,        # 97
+
+                # 98 CBW
+                    self.UNKNOWN_OPCODE,        # 98
+                # 99 CWD
+                    self.UNKNOWN_OPCODE,        # 99
+                # 9A CALLF
+                    self.UNKNOWN_OPCODE,        # 9A
+                # 9B WAIT
+                    self.UNKNOWN_OPCODE,        # 9B
+                # 9C PUSHF
+                    self.UNKNOWN_OPCODE,        # 9C
+                # 9D POPF
+                    self.UNKNOWN_OPCODE,        # 9D
+                # 9E SAHF
+                    self.UNKNOWN_OPCODE,        # 9E
+                # 9F LAHF
+                    self.UNKNOWN_OPCODE,        # 9F
+
+                # A0:ds   1010 00ds       | acc MOV offset
+                    self.UNKNOWN_OPCODE,        # A0
+                    self.UNKNOWN_OPCODE,        # A1
+                    self.UNKNOWN_OPCODE,        # A2
+                    self.UNKNOWN_OPCODE,        # A3
+                # A4:s    1010 010s       | MOVS
+                    self.UNKNOWN_OPCODE,        # A4
+                    self.UNKNOWN_OPCODE,        # A5
+                # A6:s    1010 011s       | CMPS
+                    self.UNKNOWN_OPCODE,        # A6
+                    self.UNKNOWN_OPCODE,        # A7
+                # A8:s    1010 100s       | acc TEST
+                    self.UNKNOWN_OPCODE,        # A8
+                    self.UNKNOWN_OPCODE,        # A9
+                # AA:s    1010 101s       | STOS
+                    self.UNKNOWN_OPCODE,        # AA
+                    self.UNKNOWN_OPCODE,        # AB
+                # AC:s    1010 110s       | LODS
+                    self.UNKNOWN_OPCODE,        # AC
+                    self.UNKNOWN_OPCODE,        # AD
+                # AE:s    1010 111s       | SCAS
+                    self.UNKNOWN_OPCODE,        # AE
+                    self.UNKNOWN_OPCODE,        # AF
+
+                # Bs:reg  1011 s reg      | MOV reg
+                    self.UNKNOWN_OPCODE,        # B0
+                    self.UNKNOWN_OPCODE,        # B1
+                    self.UNKNOWN_OPCODE,        # B2
+                    self.UNKNOWN_OPCODE,        # B3
+                    self.UNKNOWN_OPCODE,        # B4
+                    self.UNKNOWN_OPCODE,        # B5
+                    self.UNKNOWN_OPCODE,        # B6
+                    self.UNKNOWN_OPCODE,        # B7
+                    self.UNKNOWN_OPCODE,        # B8
+                    self.UNKNOWN_OPCODE,        # B9
+                    self.UNKNOWN_OPCODE,        # BA
+                    self.UNKNOWN_OPCODE,        # BB
+                    self.UNKNOWN_OPCODE,        # BC
+                    self.UNKNOWN_OPCODE,        # BD
+                    self.UNKNOWN_OPCODE,        # BE
+                    self.UNKNOWN_OPCODE,        # BF
+
+                # C0:s/0  1100 000s r000  | ROL
+                # C0:s/1  1100 000s r001  | ROR
+                # C0:s/2  1100 000s r010  | RCL
+                # C0:s/3  1100 000s r011  | RCR
+                # C0:s/4  1100 000s r100  | SHL
+                # C0:s/5  1100 000s r101  | SHR
+                # C0:s/6  1100 000s r110  | SAL
+                # C0:s/7  1100 000s r111  | SAR
+                    self.UNKNOWN_OPCODE,        # C0
+                    self.UNKNOWN_OPCODE,        # C1
+
+                # C2 RET var
+                    self.UNKNOWN_OPCODE,        # C2
+                # C3 RET
+                    self.UNKNOWN_OPCODE,        # C3
+                # C4 LES
+                    self.UNKNOWN_OPCODE,        # C4
+                # C5 LDS
+                    self.UNKNOWN_OPCODE,        # C5
+
+                # C6:s/0  1100 011s r000  | MOV const
+                    self.UNKNOWN_OPCODE,        # C6
+                    self.UNKNOWN_OPCODE,        # C7
+
+                # C8 ENTER
+                    self.UNKNOWN_OPCODE,        # C8
+                # C9 LEAVE
+                    self.UNKNOWN_OPCODE,        # C9
+
+                # CA RETF var
+                    self.UNKNOWN_OPCODE,        # CA
+                # CB RETF
+                    self.UNKNOWN_OPCODE,        # CB
+                # CC INT3
+                    self.UNKNOWN_OPCODE,        # CC
+                # CD INT
+                    self.UNKNOWN_OPCODE,        # CD
+                # CE INTO
+                    self.UNKNOWN_OPCODE,        # CE
+                # CF IRET
+                    self.UNKNOWN_OPCODE,        # CF
+                
+                # D0:xs/0 1101 00xs r000  | ROL 1/x
+                # D0:xs/1 1101 00xs r001  | ROR 1/x
+                # D0:xs/2 1101 00xs r010  | RCL 1/x
+                # D0:xs/3 1101 00xs r011  | RCR 1/x
+                # D0:xs/4 1101 00xs r100  | SHL 1/x
+                # D0:xs/5 1101 00xs r101  | SHR 1/x
+                # D0:xs/6 1101 00xs r110  | SAL 1/x
+                # D0:xs/7 1101 00xs r111  | SAR 1/x
+                    self.UNKNOWN_OPCODE,        # D0
+                    self.UNKNOWN_OPCODE,        # D1
+                    self.UNKNOWN_OPCODE,        # D2
+                    self.UNKNOWN_OPCODE,        # D3
+
+                # D4 AMX
+                    self.UNKNOWN_OPCODE,        # D4
+                # D5 ADX
+                    self.UNKNOWN_OPCODE,        # D5
+                # D6 SALC
+                    self.UNKNOWN_OPCODE,        # D6
+                # D7 XLAT
+                    self.UNKNOWN_OPCODE,        # D7
+                # D8/0 FADD
+                # D8/1 FMUL
+                # D8/2 FCOM
+                # D8/3 FCOMP
+                # D8/4 FSUB
+                # D8/5 FSUBR
+                # D8/6 FDIV
+                # D8/7 FDIVR
+                    self.UNKNOWN_OPCODE,        # D8
+
+                # D9/0 FLD
+                # D9/1 FXCH
+                # D9/2 FST
+                # D9/3 FSTP
+                # D9/4 FLDENV
+                # D9/5 FLDCW
+                # D9/6 FNSTENV
+                # D9/7 FSTCW
+                    self.UNKNOWN_OPCODE,        # D9
+
+                self.UNKNOWN_OPCODE,        # DA
+                self.UNKNOWN_OPCODE,        # DB
+                self.UNKNOWN_OPCODE,        # DC
+                self.UNKNOWN_OPCODE,        # DD
+                self.UNKNOWN_OPCODE,        # DE
+                self.UNKNOWN_OPCODE,        # DF
+
+                self.UNKNOWN_OPCODE,        # E0
+                self.UNKNOWN_OPCODE,        # E1
+                self.UNKNOWN_OPCODE,        # E2
+                self.UNKNOWN_OPCODE,        # E3
+                self.UNKNOWN_OPCODE,        # E4
+                self.UNKNOWN_OPCODE,        # E5
+                self.UNKNOWN_OPCODE,        # E6
+                self.UNKNOWN_OPCODE,        # E7
+                # E8 Call
+                    self.CALL,        # E8
+                self.UNKNOWN_OPCODE,        # E9
+                self.UNKNOWN_OPCODE,        # EA
+                self.UNKNOWN_OPCODE,        # EB
+                self.UNKNOWN_OPCODE,        # EC
+                self.UNKNOWN_OPCODE,        # ED
+                self.UNKNOWN_OPCODE,        # EE
+                self.UNKNOWN_OPCODE,        # EF
+
+                self.UNKNOWN_OPCODE,        # F0
+                self.UNKNOWN_OPCODE,        # F1
+                self.UNKNOWN_OPCODE,        # F2
+                self.UNKNOWN_OPCODE,        # F3
+                self.UNKNOWN_OPCODE,        # F4
+                self.UNKNOWN_OPCODE,        # F5
+
+                # F6:s/0  1111 011s r000  | TEST
+                # F6:s/2  1111 011s r010  | NOT
+                # F6:s/3  1111 011s r011  | NEG
+                    self.UNKNOWN_OPCODE,        # F6
+                
+                self.UNKNOWN_OPCODE,        # F7
+                self.UNKNOWN_OPCODE,        # F8
+                self.UNKNOWN_OPCODE,        # F9
+                self.UNKNOWN_OPCODE,        # FA
+                self.UNKNOWN_OPCODE,        # FB
+                self.UNKNOWN_OPCODE,        # FC
+                self.UNKNOWN_OPCODE,        # FD
+
+                # FE:s/0  1111 111s r000  | INC mem
+                # FE:s/1  1111 111s r001  | DEC mem
+                    self.UNKNOWN_OPCODE,        # FE
+                # FF/4    1111 1111 r100  | JMP reg
+                # FF/5    1111 1111 r101  | JMP mem
+                # FF/6    1111 1111 r110  | PUSH reg
+                    self.UNKNOWN_OPCODE,        # FF
+        ]
+        self.REGISTER8BIT  = [ "al",  "cl",  "dl",  "bl",  "ah",  "ch",  "dh",  "bh", "r8l", "r9l", "r10l", "r11l", "r12l", "r13l", "r14l", "r15l"]
+        self.REGISTER16BIT = [ "ax",  "cx",  "dx",  "bx",  "sp",  "bp",  "si",  "di", "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w"]
+        self.REGISTER32BIT = ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"]
+
     def disassemble ( self, start, stop ) :
-        stream.seek(start)
-        self.state.pos = start
+        self.pos = start
+        self.stream.seek(start)
 
-        while self.state.pos < stop :
-            byte = ord(f.read(1))
+        while self.pos < stop :
+            byte = self.stream.read(1)
+            if not byte:
+                return
+            byte = ord(byte)
 
+            self.parsetable[byte](byte)
 
-
-
-def disassembled_view ( f, start, callback, limit = -1 ) :
-    f.seek(start)
-    i = 0
-
-    _hex = ""
-
-    while 1:
-        if limit != -1 and i > limit:
-            callback(start+i, _hex)
-            return
-        
-        byte = f.read(1)
+    def SPLIT233 ( self ) -> (int, int, int) :
+        byte = self.stream.read(1)
         if not byte:
-            callback(start+i, _hex)
-            return
-
+            print("SPLIT233 ran out of stream")
+            return 0, 0, 0
         byte = ord(byte)
 
+        f = (byte & 0b11000000) >> 6
+        s = (byte & 0b00111000) >> 3
+        t =  byte & 0b00000111
 
-        # 0F 0000 1111
-        #  A0:p   1010 000p       | PUSH/POP FS
-        #  A8:p   1010 100p       | PUSH/POP GS
+        return f, s, t
 
+    def MODRM ( self, s ) -> (str, str, str) :
+        regfield = ""
+        rmfield = ""
 
+        mod, reg, rm = self.SPLIT233()
+        hex =  f"[{mod:02b} {reg:03b} {rm:03b}]"
 
+        if s == 0 :
+            regfield = self.REGISTER8BIT[reg]
+        else :
+            regfield = self.REGISTER32BIT[reg]
 
-
-        # 00-07: ADD, ES
-            # 00:ds   00 0 00 0ds       | ADD
-            # 04:s    00 0 00 10s       | acc ADD
-            # 06      00 0 00 110       | PUSH ES
-            # 07      00 0 00 111       | POP ES
-        # 08-0F: OR, CS
-            # 08:ds   00 0 01 0ds       | OR
-            # 0C:s    00 0 01 10s       | acc OR
-            # 0E      00 0 01 110       | PUSH CS
-            # 0F      0000 1111         | Instruction set switch
-        # 10-17: ADC, SS
-            # 10:ds   00 0 10 0ds       | ADC
-            # 14:s    00 0 10 10s       | acc ADC
-            # 16      00 0 10 110       | PUSH SS
-            # 17      00 0 10 111       | POP SS
-        # 18-1F: SBB, DS
-            # 18:ds   00 0 11 0ds       | SBB
-            # 1C:s    00 0 11 10s       | acc SSB
-            # 1E      00 0 11 110       | PUSH DS
-            # 1F      00 0 11 111       | POP DS
-        # 20-27: AND, ESo DDA
-            # 20:ds   00 1 00 0ds       | AND
-            # 24:s    00 1 00 10s       | acc AND
-            # 26      00 1 00 110       | ES override
-            # 27      00 1 00 111       | DAA AL
-        # 28-2F: SUB, CSo DAS
-            # 28:ds   00 1 01 0ds       | SUB
-            # 2C:s    00 1 01 10s       | acc SUB
-            # 2E      00 1 01 110       | CS override
-            # 2F      00 1 01 111       | DAS AL
-        # 30-37: XOR, SSo AAA
-            # 30:ds   00 1 10 0ds       | XOR
-            # 34:s    00 1 10 10s       | acc XOR
-            # 36      00 1 10 110       | SS override
-            # 37      00 1 10 111       | AAA AL
-        # 38-3F: CMP, DSo AAS
-            # 38:ds   00 1 11 0ds       | CMP
-            # 3C:s    00 1 11 10s       | acc CMP
-            # 3E      00 1 11 110       | DS override 
-            # 3F      00 1 11 111       | AAS AL
-        # 40-5F: reg operations
-            # 40:reg  010 00 reg        | INC reg
-            # 48:reg  010 01 reg        | DEC reg
-            # 50:reg  010 10 reg        | PUSH reg
-            # 58:reg  010 11 reg        | POP reg
-        # 60-67
-            # 60      011000 00         | PUSHA
-            # 61      011000 01         | POPA
-            # 62      011000 10         | BOUND
-            # 63      011000 11         | ARPL
-        # 64-67: Prefixes
-            # 64      011001 00         | FS override
-            # 65      011001 01         | GS override
-            # 66      011001 10         | Operand-size override
-            # 67      011001 11         | Address-size override
-        # 68-6B
-            # 68:~s-  011010 s0         | PUSH const
-            # 69:~s-  011010 s1         | IMUL const
-        # 6C-6F: Port IO
-            # 6C:s    011011 0 s        | INS
-            # 6E:s    011011 1 s        | OUTS
-        # 70-7F: Jumps
-        	# 70      0111 0000         | JO          (OF=1)
-            # 71      0111 0001         | JNO         (OF=0)
-            # 72      0111 0010         | JB JNAE JC  (CF=1)			
-            # 73      0111 0011         | JNB JAE JNC (CF=0)
-            # 74      0111 0100         | JZ JE       (ZF=1)
-            # 75      0111 0101         | JNZ JNE     (ZF=0)
-            # 76      0111 0110         | JBE JNA     (CF=1  OR ZF=1)
-            # 77      0111 0111         | JNBE JA     (CF=0 AND ZF=0)
-            # 78      0111 1000         | JS          (SF=1)
-            # 79      0111 1001         | JNS         (SF=0)
-            # 7A      0111 1010         | JP JPE      (PF=1)
-            # 7B      0111 1011         | JNP JPO     (PF=0)
-            # 7C      0111 1100         | JL JNGE     (SF!=OF)
-            # 7D      0111 1101         | JNL JGE     (SF=OF)
-            # 7E      0111 1110         | JLE JNG     ((ZF=1) OR (SF!=OF))
-            # 7F      0111 1111         | JNLE JG     ((ZF=0) AND (SF=OF))
-        # 80-83: Immediate
-            # 80:xs/0 100000 xs r000   | ADD const
-            # 80:xd/1 100000 xs r001   | OR const
-            # 80:xs/2 100000 xs r010   | ADC const
-            # 80:xs/3 100000 xs r011   | SBB const
-            # 80:xs/4 100000 xs r100   | AND const
-            # 80:xs/5 100000 xs r101   | SUB const
-            # 80:xs/6 100000 xs r110   | XOR const
-            # 80:xs/7 100000 xs r111   | CMP const
-
-        # 84:s    1000010 s       | TEST
-        # 86:s    1000011 s       | XCHG
-        # 88:ds   100010 ds       | MOV
-        # 8C:d-   1000 11d0       | MOV segreg
-        # 8D      1000 1101       | LEA
-        # 8F/0    1000 1111 r000  | POP reg
-        # 90:reg  10010 reg       | XCHG reg
-
-        # 98 CBW
-        # 99 CWD
-        # 9A CALLF
-        # 9B WAIT
-        # 9C PUSHF
-        # 9D POPF
-        # 9E SAHF
-        # 9F LAHF
-
-        # A0:ds   1010 00ds  | acc MOV offset
-
-        # A4:s    1010 010s       | MOVS
-        # A6:s    1010 011s       | CMPS
-        # A8:s    1010 100s       | acc TEST
-        # AA:s    1010 101s       | STOS
-        # AC:s    1010 110s       | LODS
-        # AE:s    1010 111s       | SCAS
-
-        # Bs:reg  1011 s reg      | MOV reg
-
-        # C0:s/0  1100 000s r000  | ROL
-        # C0:s/1  1100 000s r001  | ROR
-        # C0:s/2  1100 000s r010  | RCL
-        # C0:s/3  1100 000s r011  | RCR
-        # C0:s/4  1100 000s r100  | SHL
-        # C0:s/5  1100 000s r101  | SHR
-        # C0:s/6  1100 000s r110  | SAL
-        # C0:s/7  1100 000s r111  | SAR
-
-        # C2 RET var
-        # C3 RET
-
-        # C4 LES
-        # C5 LDS
-
-        # C6:s/0  1100 011s r000  | MOV const
-
-        # C8 ENTER
-        # C9 LEAVE
-
-        # CA RETF var
-        # CB RETF
-        # CC INT3
-        # CD INT
-        # CE INTO
-        # CD IRET
-
-        # D0:xs/0 1101 00xs r000  | ROL 1/x
-        # D0:xs/1 1101 00xs r001  | ROR 1/x
-        # D0:xs/2 1101 00xs r010  | RCL 1/x
-        # D0:xs/3 1101 00xs r011  | RCR 1/x
-        # D0:xs/4 1101 00xs r100  | SHL 1/x
-        # D0:xs/5 1101 00xs r101  | SHR 1/x
-        # D0:xs/6 1101 00xs r110  | SAL 1/x
-        # D0:xs/7 1101 00xs r111  | SAR 1/x
-
-        # D4 AMX
-        # D5 ADX
-        # D6 SALC
-        # D7 XLAT
-        # D8/0 FADD
-        # D8/1 FMUL
-        # D8/2 FCOM
-        # D8/3 FCOMP
-        # D8/4 FSUB
-        # D8/5 FSUBR
-        # D8/6 FDIV
-        # D8/7 FDIVR
-
-        # D9/0 FLD
-        # D9/1 FXCH
-        # D9/2 FST
-        # D9/3 FSTP
-        # D9/4 FLDENV
-        # D9/5 FLDCW
-        # D9/6 FNSTENV
-        # D9/7 FSTCW
-
-
-        # F6:s/0  1111 011s r000  | TEST
-        # F6:s/2  1111 011s r010  | NOT
-        # F6:s/3  1111 011s r011  | NEG
-        # FE:s/0  1111 111s r000  | INC mem
-        # FE:s/1  1111 111s r001  | DEC mem
-        # FF/4    1111 1111 r100  | JMP reg
-        # FF/5    1111 1111 r101  | JMP mem
-        # FF/6    1111 1111 r110  | PUSH reg
-
-        if ord(byte) & 0b11111100 == 0b00000000 : # ADD 000000ds
-            d = (ord(byte) & 0b00000010) >> 1 # 0: add reg to r/m, 1: add r/m to reg
-            s =  ord(byte) & 0b00000001       # 0: 8-bit,          1: 16- or 32-bit
-            _hex += f"000000 {d}{s}"
+        if mod == 0b00 and rm == 0b101 : # displacement-only mode
+            disp32 = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
+            self.pos += 4
+            hex += f" {disp32:08X}"
+            rmfield = f"[{disp32:+08X}]"
+        elif mod == 0b11 : # direct mode
+            rmfield = self.REGISTER32BIT[rm]
+        else :
+            rmloc = ""
+            if rm == 0b100 : # SIB mode
+                rmloc, sibhex = self.SIB(mod)
+                hex += sibhex
+            else :
+                rmloc = self.REGISTER32BIT[rm]
             
-            modrm = f.read(1) 
-            mod, reg, rm = ModRM(modrm)
-            _hex += f" {mod:02b} {reg:03b} {rm:03b}"
-
-            regfield = Register(s*2, reg)
-            rmfield = Register(2, rm)
-
-            if mod == 0b00 :
-                if rm == 0b100 : # SIB mode
-                    sib = f.read(1)
-                    scale, index, base = SIB(sib)
-                    _hex += f" {scale:02b} {index:03b} {base:03b}"
-
-                    rmfield = f"{Register(2, index)}*{1<<scale}"
-
-                    if base == 0b101 : # displacement-only mode
-                        disp32 = int.from_bytes(f.read(4), byteorder='little', signed=True)
-                        _hex += f" {disp32:08X}"
-                        rmfield += f"{disp32:+08X}"
-                        i += 4
-                    else :
-                        print()
-                    
-                    i += 1
+            offset = ""
             if mod == 0b01 : # one-byte displacement mode
-                disp8 = int.from_bytes(f.read(1), byteorder='little', signed=True)
-                _hex += f" {disp8:02X}"
-                rmfield += f"{disp8:+02X}"
-                i += 1
-            if mod == 0b10 : # four-byte displacement mode
-                disp32 = int.from_bytes(f.read(4), byteorder='little', signed=True)
-                _hex += f" {disp32:08X}"
-                rmfield += f"{disp32:+08X}"
-                i += 4
-            if mod == 0b11 : # direct mode (r/m is a register field)
-                rmfield = Register(s*2, rm)
-            else :
-                rmfield = f"[{rmfield}]"
+                disp8 = int.from_bytes(self.stream.read(1), byteorder='little', signed=True)
+                self.pos += 1
+                hex += f" {disp8:02X}"
+                offset = f"{disp8:+02X}"
+            elif mod == 0b10 : # four-byte displacement mode
+                disp32 = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
+                self.pos += 4
+                hex += f" {disp32:08X}"
+                offset = f"{disp32:+08X}"
             
-            if d == 0b0 :
-                callback(start+i, _hex, f"ADD {rmfield}, {regfield}")
-            else :
-                callback(start+i, _hex, f"ADD {regfield}, {rmfield}")
-            _hex = ""
-            i += 1
+            rmfield = f"[{rmloc}{offset}]"
+        
+        return regfield, rmfield, hex
 
-        elif ord(byte) & 0b11111100 == 0b10000000 : # immediate mode 100000xs
+    def SIB ( self, mod ) -> (str, str) :
+        rmloc = ""
+
+        scale, index, base = self.SPLIT233()
+        hex = f" [{scale:02b} {index:03b} {base:03b}]"
+
+        scaledindex = f"{self.REGISTER32BIT[index]}*{1<<scale}"
+        if mod == 0b00 and base == 0b101 :
+            if mod == 0b00 : # displacement-only mode
+                disp32 = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
+                self.pos += 4
+                hex += f" {disp32:08X}"
+                rmloc = disp32
+            else :
+                rmloc = scaledindex
+        else :
+            rmloc = f"{self.REGISTER32BIT[base]}+{scaledindex}"
+        
+        return rmloc, hex
+
+    def UNKNOWN_OPCODE ( self, byte ) :
+        # print(f"Unknown opcode: {byte:02X}")
+        self.pos += 1
+    
+    def ADD ( self, byte ) :
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        d = (byte & 0b00000010) >> 1 # 0: add reg to r/m, 1: add r/m to reg
+        s =  byte & 0b00000001       # 0: 8-bit,          1: 16- or 32-bit
+
+        regfield, rmfield, modrmhex = self.MODRM(s)
+
+        hex = f"00:{d}{s}{modrmhex}"
+            
+        text = ""
+        if d == 0b0 :
+            text = f"ADD {rmfield}, {regfield}"
+        else :
+            text = f"ADD {regfield}, {rmfield}"
+        
+        print(f"{address:8}: {hex:50} {text}")
+
+    def CALL ( self, byte ) :
+        # E8 rel16/32
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        dist = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
+        self.pos += 4
+        
+        hex = f"E8 {dist:08X}"
+        text = f"CALL {dist} to {self.pos+dist:08X}"
+
+        print(f"{address:8}: {hex:50} {text}")
+
+
+def functatasdt () :
+    if True :
+
+
+        if ord(byte) & 0b11111100 == 0b10000000 : # immediate mode 100000xs
             x = (ord(byte) & 0b00000010) >> 1 # 0: same size as s, 1: sign-extended
             s =  ord(byte) & 0b00000001       # 0: 8-bit,          1: 32-bit
             _hex += f"100000 {x}{s}"
@@ -1659,13 +1737,7 @@ def disassembled_view ( f, start, callback, limit = -1 ) :
             callback(start+i, _hex, f"IN al, {number}")
             _hex = bytearray()
             i += 1
-        elif byte == b'\xE8' :
-            read = f.read(4)
-            _hex += read
-            dist = int.from_bytes(read, byteorder='little', signed=True)
-            callback(start+i, _hex, f"CALL {dist} to {start+i+5+dist:08X}")
-            _hex = bytearray()
-            i += 4
+
         elif byte == b'\xE9' :
             read = f.read(4)
             _hex += read
@@ -2028,4 +2100,3 @@ for file in stream_dir_exe_gen() :
                 file_disassembler.disassemble(EntryPoint, EntryPoint+3000)
         print()
         break
-ModRM(b'\xC7')
