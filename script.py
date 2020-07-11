@@ -326,8 +326,8 @@ class Disassembler_x86:
                     self.UNKNOWN_OPCODE,        # A2
                     self.UNKNOWN_OPCODE,        # A3
                 # A4:s    1010 010s       | MOVS
-                    self.UNKNOWN_OPCODE,        # A4
-                    self.UNKNOWN_OPCODE,        # A5
+                    self.MOVS,        # A4
+                    self.MOVS,        # A5
                 # A6:s    1010 011s       | CMPS
                     self.UNKNOWN_OPCODE,        # A6
                     self.UNKNOWN_OPCODE,        # A7
@@ -473,7 +473,8 @@ class Disassembler_x86:
                 self.UNKNOWN_OPCODE,        # F0
                 self.UNKNOWN_OPCODE,        # F1
                 self.UNKNOWN_OPCODE,        # F2
-                self.UNKNOWN_OPCODE,        # F3
+                # F3      11110011        | REPE
+                    self.REPE,        # F3
                 self.UNKNOWN_OPCODE,        # F4
                 self.UNKNOWN_OPCODE,        # F5
 
@@ -495,11 +496,11 @@ class Disassembler_x86:
 
                 # FE:s/0  1111 111s r000  | INC mem
                 # FE:s/1  1111 111s r001  | DEC mem
-                    self.UNKNOWN_OPCODE,        # FE
+                    self.OP_FEs,        # FE
                 # FF/4    1111 1111 r100  | JMP reg
                 # FF/5    1111 1111 r101  | JMP mem
                 # FF/6    1111 1111 r110  | PUSH reg
-                    self.UNKNOWN_OPCODE,        # FF
+                    self.OP_FEs,        # FF
         ]
         self.parsetable_0F = [
             self.UNKNOWN_OPCODE,        # 00
@@ -1360,18 +1361,16 @@ class Disassembler_x86:
         scale, index, base, byte = self.SPLIT233()
         hex = f" {byte:02X}[{scale:02b} {index:03b} {base:03b}]"
 
-        scaledindex = f"{self.REGISTER32BIT[index]}*{1<<scale}"
-        if mod == 0b00 and base == 0b101 :
+        rmloc = f"{self.REGISTER32BIT[index]}*{1<<scale}"
+        if base == 0b101 :
             if mod == 0b00 : # displacement-only mode
                 disp32 = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
                 self.pos += 4
                 hex += f" {disp32 &0xFFFFFFFF:08X}"
-                rmloc = disp32
-            else :
-                rmloc = scaledindex
+                rmloc += f"{disp32:+}"
         else :
-            rmloc = f"{self.REGISTER32BIT[base]}+{scaledindex}"
-        
+            rmloc = f"{self.REGISTER32BIT[base]}+{rmloc}"
+            
         return scale, index, base, byte, rmloc, hex
 
     def UNKNOWN_OPCODE ( self, byte ) :
@@ -1527,6 +1526,17 @@ class Disassembler_x86:
             text = f"MOV {regfield}, {rmfield}"
         
         print(f"{address:8}: {hex:50} {text}")
+    def MOVS ( self, byte ) :       # A4:s
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        s = byte & 0b00000001
+
+        hex = f"A4:{s}"
+            
+        text = "MOVS"
+        
+        print(f"{address:8}: {hex:50} {text}")
     def BITMOVE ( self, byte ) :    # C0:s      modrm
         # C0:s/0  1100 000s r000  | ROL
         # C0:s/1  1100 000s r001  | ROR
@@ -1617,6 +1627,14 @@ class Disassembler_x86:
         text = f"{op} {rmfield}, {constant}"
 
         print(f"{address:8}: {hex:50} {text}")
+    def REPE ( self, byte ) :       # F3
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        hex = "F3"
+        text = "REPE"
+
+        print(f"{address:8}: {hex:50} {text}")
     def OP_F6s ( self, byte ) :     # F6:s/r
         address = f"{self.pos:08X}"
         self.pos += 1
@@ -1644,6 +1662,58 @@ class Disassembler_x86:
         else :
             op = ["-", "-", "NOT", "NEG", "MUL acc", "IMUL acc", "DIV acc", " IDIV acc"][reg]
             text = f"{op} {rmfield}"
+
+        print(f"{address:8}: {hex:50} {text}")
+    def OP_FEs ( self, byte ) :     # FE:s
+        address = f"{self.pos:08X}"
+        self.pos += 1
+
+        s = byte & 0b00000001
+
+        mod, reg, rm, byte, regfield, rmfield, modrmhex = self.MODRM(s)
+
+        hex =  f"FE:{s}/{reg} {modrmhex}"
+
+        if reg == 0b000 : # s/0 INC r/m
+            constant = 0
+            if s == 0 :
+                const8 = int.from_bytes(self.stream.read(1), byteorder='little', signed=True)
+                self.pos += 1
+                hex += f" {const8 &0xFF:02X}"
+                constant = const8
+            else :
+                const32 = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
+                self.pos += 4
+                hex += f" {const32 &0xFFFFFFFF:08X}"
+                constant = const32
+            text = f"INC [{constant}]"
+        elif reg == 0b001 : # s/1 DEC r/m
+            constant = 0
+            if s == 0 :
+                const8 = int.from_bytes(self.stream.read(1), byteorder='little', signed=True)
+                self.pos += 1
+                hex += f" {const8 &0xFF:02X}"
+                constant = const8
+            else :
+                const32 = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
+                self.pos += 4
+                hex += f" {const32 &0xFFFFFFFF:08X}"
+                constant = const32
+            text = f"DEC [{constant}]"
+        elif s == 0 :
+            print("Invalid FE:s subselection")
+        elif reg == 0b010 : # 1/2 CALL r/m
+            text = f"CALL {rmfield}"
+        elif reg == 0b011 : # 1/3 CALLF m16:16/32/64
+            text = "FE:1/3 CALLF not implemented yet"
+        elif reg == 0b100 : # 1/4 JMP r/m
+            text = f"JMP {rmfield}"
+        elif reg == 0b101 : # 1/5 JMPF m16:16/32/64
+            text = "FE:1/5 JMPF not implemented yet"
+        elif reg == 0b110 : # 1/6 PUSH r/m
+            text = f"PUSH {rmfield}"
+        else :
+            print("Invalid FE:s subselection")
 
         print(f"{address:8}: {hex:50} {text}")
     def CJMP32 ( self, byte ) :      # 0F 70:cjmp   rel16/32
@@ -2187,9 +2257,7 @@ def functatasdt () :
             callback(start+i, _hex, f"JMP [near] {dist} to {start+i+5+dist:08X}")
             _hex = bytearray()
             i += 1
-        elif byte == b'\xF3' :
-            callback(start+i, _hex, f"REPE prefix")
-            _hex = bytearray()
+        
         elif byte == b'\xF4' :
             callback(start+i, _hex, f"HLT")
             _hex = bytearray()
@@ -2200,66 +2268,7 @@ def functatasdt () :
         elif byte == b'\xFD' :
             callback(start+i, _hex, f"STD")
             _hex = bytearray()
-        elif byte == b'\xFF' :
-            byte = f.read(1)
-            _hex += byte
-            if byte == b'\x15' :
-                read = f.read(4)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"CALL dword ptr [{number:08X}]")
-                _hex = bytearray()
-                i += 4
-            elif byte == b'\x24' :
-                byte = f.read(1)
-                _hex += byte
-                if byte == b'\x85' :
-                    read = f.read(4)
-                    _hex += read
-                    offset = int.from_bytes(read, byteorder='little', signed=True)
-                    callback(start+i, _hex, f"JMP dword ptr [eax*4+{offset:08X}]")
-                    _hex = bytearray()
-                    i += 4
-                elif byte == b'\x8D' :
-                    read = f.read(4)
-                    _hex += read
-                    offset = int.from_bytes(read, byteorder='little', signed=True)
-                    callback(start+i, _hex, f"JMP dword ptr [ecx*4+{offset:08X}]")
-                    _hex = bytearray()
-                    i += 4
-                elif byte == b'\x95' :
-                    read = f.read(4)
-                    _hex += read
-                    offset = int.from_bytes(read, byteorder='little', signed=True)
-                    callback(start+i, _hex, f"JMP dword ptr [edx*4+{offset:08X}]")
-                    _hex = bytearray()
-                    i += 4
-                i += 1
-            elif byte == b'\x35' :
-                read = f.read(4)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"PUSH [{number}]")
-                _hex = bytearray()
-                i += 4
-            elif byte == b'\x55' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"CALL dword ptr [ebp+{number}]")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\x75' :
-                read = f.read(1)
-                _hex += read
-                number = int.from_bytes(read, byteorder='little', signed=True)
-                callback(start+i, _hex, f"PUSH [ebp+{number}]")
-                _hex = bytearray()
-                i += 1
-            elif byte == b'\xD7' :
-                callback(start+i, _hex, f"CALL edi")
-                _hex = bytearray()
-            i += 1
+        
         i += 1
 
         if len(_hex) != 0 :
