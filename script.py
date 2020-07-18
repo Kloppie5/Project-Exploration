@@ -61,339 +61,71 @@ class ParseRule :
 
         print(f"{address:8}: {hex:50} {text}")
 
-
-
         for param in self.params :
             if param == "AL" :
                 print(param)
+
         print(f"{self.pattern} {self.op} {self.params}")
+
+
+REGISTER8BIT  = [ "al",  "cl",  "dl",  "bl",  "ah",  "ch",  "dh",  "bh", "r8l", "r9l", "r10l", "r11l", "r12l", "r13l", "r14l", "r15l"]
+REGISTER16BIT = [ "ax",  "cx",  "dx",  "bx",  "sp",  "bp",  "si",  "di", "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w"]
+REGISTER32BIT = ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"]
+
+class Disassembler :
+
+    """
+        Disassembler
+    """
+
+    def __init__ ( self, lanfile ) :
+        self.parsetables = {}
+        self.add_language ( "default", lanfile )
+
+    def add_language ( self, name, lanfile ) :
+        UNKNOWN_OPCODE = ParseRule ( "-1 x UNKNOWN_OPCODE -" )
+
+        parsetables[name] = [ UNKNOWN_OPCODE ] * 256
+
+        with open(lanfile, "rb") as f:
+            for line in f :
+                if line.strip() == "" :
+                    continue
+
+                parserule = ParseRule(line)
+
+                self.parsetables[name][parserule.byte] = parserule
+
+    def disassemble ( self, stream, start, stop ) :
+        pos = start
+        self.queue = []
+
+        while pos < stop :
+            byte = self.stream.read(1)
+            if not byte:
+                return
+            byte = ord(byte)
+            self.queue.append({ "byte" : byte })
+
+    def _read_modrm ( self ) :
+        byte = ord(self.stream.read(1))
+        mod = (byte & 0b11000000) >> 6
+        reg = (byte & 0b00111000) >> 3
+        rm  =  byte & 0b00000111
+        self.queue.append({
+            "type" : "modrm",
+            "byte" : byte,
+            "mod" : mod,
+            "reg" : reg,
+            "rm" : rm
+        })
+
+    def get_sib () -> (int, int, int) :
+        pass
 
 class Disassembler_x86:
 
-    def __init__ ( self, stream ) :
-        self.stream = stream
-        self.pos = 0
-        self.parsetable_gen()
-
-        self.REGISTER8BIT  = [ "al",  "cl",  "dl",  "bl",  "ah",  "ch",  "dh",  "bh", "r8l", "r9l", "r10l", "r11l", "r12l", "r13l", "r14l", "r15l"]
-        self.REGISTER16BIT = [ "ax",  "cx",  "dx",  "bx",  "sp",  "bp",  "si",  "di", "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w"]
-        self.REGISTER32BIT = ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"]
-
-    def parsetable_gen ( self ) :
-        UNKNOWN_OPCODE = ParseRule ( "-1 x UNKNOWN_OPCODE -" )
-        self.parsetable = [ UNKNOWN_OPCODE ] * 256
-        s = """
-            00 00:00  ADD    RM8_R8
-            01 00:01  ADD    RM32_R32
-            02 00:10  ADD    RR8_M8
-            03 00:11  ADD    R32_RM32
-            04 04:0   ADD    AL_I8
-            05 04:1   ADD    EAX_I32
-            06 06     PUSH   ES
-            07 07     POP    ES
-
-            08 08:00  OR     RM8_R8
-            09 08:01  OR     RM32_R32
-            0A 08:10  OR     R8_RM8
-            0B 08:11  OR     R32_RM32
-            0C 0C:0   OR     AL_I8
-            0D 0C:1   OR     EAX_I32
-            0E 0E     PUSH   CS
-            0F 0F     p0F    -
-
-            10 10:00  ADC    RM8_R8
-            11 10:01  ADC    RM32_R32
-            12 10:10  ADC    R8_RM8
-            13 10:11  ADC    R32_RM32
-            14 14:0   ADC    AL_I8
-            15 14:1   ADC    EAX_I32
-            16 16     PUSH   SS
-            17 17     POP    SS
-
-            18 18:00  SBB    RM8_R8
-            19 18:01  SBB    RM32_R32
-            1A 18:10  SBB    R8_RM8
-            1B 18:11  SBB    R32_RM32
-            1C 1C:0   SBB    AL_I8
-            1D 1C:1   SBB    EAX_I32
-            1E 1E     PUSH   DS
-            1F 1F     POP    DS
-
-            20 20:00  AND    RM8_R8
-            21 20:01  AND    RM32_R32
-            22 20:10  AND    R8_RM8
-            23 20:11  AND    R32_RM32
-            24 24:0   AND    AL_I8
-            25 24:1   AND    EAX_I32
-            26 26     pES    ES
-            27 27     DAA    -
-
-            28 28:00  SUB    RM8_R8
-            29 28:01  SUB    RM32_R32
-            2A 28:10  SUB    R8_RM8
-            2B 28:11  SUB    R32_RM32
-            2C 2C:0   SUB    AL_I8
-            2D 2C:1   SUB    EAX_I32
-            2E 2E     pCS    CS
-            2F 2F     DAS    -
-
-            30 30:00  XOR    RM8_R8
-            31 30:01  XOR    RM32_R32
-            32 30:10  XOR    R8_RM8
-            33 30:11  XOR    R32_RM32
-            34 34:0   XOR    AL_I8
-            35 34:1   XOR    EAX_I32
-            36 36     pSS    SS
-            37 37     AAA    -
-
-            38 38:00  CMP    RM8_R8
-            39 38:01  CMP    RM32_R32
-            3A 38:10  CMP    R8_RM8
-            3B 38:11  CMP    R32_RM32
-            3C 3C:0   CMP    AL_I8
-            3D 3C:1   CMP    EAX_I32
-            3E 3E     pDS    DS
-            3F 3F     AAS    -
-
-            40 40+0   INC    R32
-            41 40+1   INC    R32
-            42 40+2   INC    R32
-            43 40+3   INC    R32
-            44 40+4   INC    R32
-            45 40+5   INC    R32
-            46 40+6   INC    R32
-            47 40+7   INC    R32
-
-            48 48+0   DEC    R32
-            49 48+1   DEC    R32
-            4A 48+2   DEC    R32
-            4B 48+3   DEC    R32
-            4C 48+4   DEC    R32
-            4D 48+5   DEC    R32
-            4E 48+6   DEC    R32
-            4F 48+7   DEC    R32
-
-            50 50+0   PUSH   R32
-            51 50+1   PUSH   R32
-            52 50+2   PUSH   R32
-            53 50+3   PUSH   R32
-            54 50+4   PUSH   R32
-            55 50+5   PUSH   R32
-            56 50+6   PUSH   R32
-            57 50+7   PUSH   R32
-
-            58 58+0   POP    R32
-            59 58+1   POP    R32
-            5A 58+2   POP    R32
-            5B 58+3   POP    R32
-            5C 58+4   POP    R32
-            5D 58+5   POP    R32
-            5E 58+6   POP    R32
-            5F 58+7   POP    R32
-
-            60 60     PUSHA  -
-            61 61     POPA   -
-            62 62     BOUND  R32_M32&32
-            63 63     ARPL   RM16_R16
-
-            64 64     pFS    -
-            65 65     pGS    -
-            66 66     p66    -
-            67 67     p67    -
-
-            68 68:0-  PUSH   I32
-            69 69:0-  IMUL   R32_RM32_I32
-            6A 68:1-  PUSH   I8
-            6B 69:1-  IMUL   R8_RM8_I8
-
-            6C 6C:0   INS    M8
-            6D 6C:1   INS    M32
-            6E 6E:0   OUTS   M8
-            6F 6F:1   OUTS   M32
-
-            70 7|0    JO     REL8
-            71 7|1    JNO    REL8
-            72 7|2    JC     REL8
-            73 7|3    JNC    REL8
-            74 7|4    JZ     REL8
-            75 7|5    JNZ    REL8
-            76 7|6    JNA    REL8
-            77 7|7    JA     REL8
-            78 7|8    JS     REL8
-            79 7|9    JNS    REL8
-            7A 7|A    JP     REL8
-            7B 7|B    JNP    REL8
-            7C 7|C    JL     REL8
-            7D 7|D    JNL    REL8
-            7E 7|E    JNG    REL8
-            7F 7|F    JG     REL8
-
-            80 80:00  IMM    RT_RM8_I8
-            81 80:01  IMM    RT_RM32_I32
-            82 80:10  IMM    RT_RM8_I8
-            83 80:11  IMM    RT_RM32_I8
-
-            84 84:0   TEST   RM8_R8
-            85 84:1   TEST   RM32_R32
-            86 86:0   XCHG   R8_RM8
-            87 86:1   XCHG   R32_RM32
-            88 88:00  MOV    RM8_R8
-            89 88:01  MOV    RM32_R32
-            8A 88:10  MOV    R8_RM8
-            8B 88:11  MOV    R32_RM32
-
-            8C 8C:0-  MOV    RM16_S
-            8D 8D     LEA    R32_M
-            8E 8C:1-  MOV    S_RM16
-            8F 8F/0   POP    RM32
-
-            90 90+0   XCHG   R32_EAX
-            91 90+1   XCHG   R32_EAX
-            92 90+2   XCHG   R32_EAX
-            93 90+3   XCHG   R32_EAX
-            94 90+4   XCHG   R32_EAX
-            95 90+5   XCHG   R32_EAX
-            96 90+6   XCHG   R32_EAX
-            97 90+7   XCHG   R32_EAX
-
-            98 98     CWDE   -
-            99 99     CDQ    -
-            9A 9A     CALLF  PTR16:32
-            9B 9B     pWAIT  -
-            9C 9C     PUSHF  -
-            9D 9D     POPF   -
-            9E 9E     SAHF   -
-            9F 9F     LAHF   -
-
-            A0 A0:00  MOV    AL_MO8
-            A1 A0:01  MOV    EAX_MO32
-            A2 A0:10  MOV    MO8_AL
-            A3 A0:11  MOV    MO32_EAX
-            A4 A4:0   MOVS   M8_M8
-            A5 A4:1   MOVS   M32_M32
-            A6 A6:0   CMPS   M8_M8
-            A7 A6:1   CMPS   M32_M32
-            A8 A8:0   TEST   AL_I8
-            A9 A8:1   TEST   EAX_I32
-
-            AA AA:0   STOS   M8_AL
-            AB AA:1   STOS   M32_EAX
-            AC AC:0   LODS   AL_M8
-            AD AC:1   LODS   EAX_M32
-            AE AE:0   SCAS   M8_AL
-            AF AE:1   SCAS   M32_EAX
-
-            B0 B0+0   MOV    R8_I8
-            B1 B0+1   MOV    R8_I8
-            B2 B0+2   MOV    R8_I8
-            B3 B0+3   MOV    R8_I8
-            B4 B0+4   MOV    R8_I8
-            B5 B0+5   MOV    R8_I8
-            B6 B0+6   MOV    R8_I8
-            B7 B0+7   MOV    R8_I8
-            B8 B8+0   MOV    R32_I32
-            B9 B8+1   MOV    R32_I32
-            BA B8+2   MOV    R32_I32
-            BB B8+3   MOV    R32_I32
-            BC B8+4   MOV    R32_I32
-            BD B8+5   MOV    R32-I32
-            BE B8+6   MOV    R32_I32
-            BF B8+7   MOV    R32_I32
-
-            C0 C0:0   BIT    RT_RM8_I8
-            C1 C0:1   BIT    RT_RM32_I32
-
-            C2 C2     RET    I16
-            C3 C3     RET    -
-
-            C4 C4     LES    R32_M16:32
-            C5 C5     LDS    R32_M16:32
-
-            C6 C6/0   MOV    RM8_I8
-            C7 C7/0   MOV    RM32_I32
-
-            C8 C8     ENTER  I16_I8
-            C9 C9     LEAVE  -
-
-            CA CA     RET    I16
-            CB CB     RET    -
-
-            CC CC     INT3   -
-            CD CD     INT    I8
-            CE CE     INTO   -
-            CF CF     IRET   -
-
-            D0 D0:00  BIT    RT_RM8
-            D1 D0:01  BIT    RT_RM32
-            D2 D0:10  BIT    RT_RM8_CL
-            D3 D0:11  BIT    RT_RM32_CL
-
-            D4 D4     AMX    I8
-            D5 D5     ADX    I8
-            D6 D6     SALC   -
-            D7 D7     XLAT   M8
-
-            D8 D8-DF  FFUN   ign
-            D9 D8-DF  FFUN   ign
-            DA D8-DF  FFUN   ign
-            DB D8-DF  FFUN   ign
-            DC D8-DF  FFUN   ign
-            DD D8-DF  FFUN   ign
-            DE D8-DF  FFUN   ign
-            DF D8-DF  FFUN   ign
-
-            E0 E0     LOOPNZ ECX_REL8
-            E1 E1     LOOPZ  ECX_REL8
-            E2 E2     LOOP   ECX_REL8
-            E3 E3     JECXZ  REL8_ECX
-
-            E4 E4     IN     AL_I8
-            E5 E5     IN     EAX_I8
-            E6 E6     OUT    I8_AL
-            E7 E7     OUT    I8_EAX
-
-            E8 E8     CALL   REL32
-            E9 E9     JMP    REL32
-            EA EA     JMPF   PTR16:32
-            EB EB     JMP    REL8
-
-            EC EC:00  IN     AL_DX
-            ED EC:01  IN     EAX_DX
-            EE EC:10  OUT    DX_AL
-            EF EC:11  OUT    DX_EAX
-
-            F0 F0     pLOCK  -
-            F1 F1     INT1   -
-            F2 F2     pREPNZ -
-            F3 F3     pREPZ  -
-            F4 F4     HLT    -
-            F5 F5     CMC    -
-            F6 F6     F6     ign
-            F7 F7     F7     ign
-            F8 F8     CLC    -
-            F9 F9     STC    -
-            FA FA     CLI    -
-            FB FB     STI    -
-            FC FC     CLD    -
-            FD FD     STD    -
-            FE FE     FE     ign
-            FF FF     FF     ign
-        """
-        for line in s.splitlines() :
-            if line.strip() == "" :
-                continue
-
-            parserule = ParseRule(line)
-
-            self.parsetable[parserule.byte] = parserule
-
-        self.parsetable_0F = [ UNKNOWN_OPCODE ] * 256
-        self.parsetable_0F38 = [ UNKNOWN_OPCODE ] * 256
-        self.parsetable_0F3A = [ UNKNOWN_OPCODE ] * 256
-
     def disassemble ( self, start, stop ) :
-        self.pos = start
-        self.stream.seek(start)
 
         while self.pos < stop :
             byte = self.stream.read(1)

@@ -7,6 +7,23 @@ PE header
     Characteristics 23 (Exec, NoReloc)
     EntryPoint 24F52C20
 
+define(pl_params,MonsterHunterWorld.exe+4F52C28)
+define(pl_item_params,MonsterHunterWorld.exe+4F52C30)
+define(pl_skill_params,MonsterHunterWorld.exe+4F52C38)
+define(pl_mantle_params,MonsterHunterWorld.exe+4F52D28)
+define(player_data,MonsterHunterWorld.exe+4F4CF70)
+define(world_data,MonsterHunterWorld.exe+4F54470)
+define(session_data,MonsterHunterWorld.exe+5104B58)
+define(gathering_data,MonsterHunterWorld.exe+4F52F10)
+define(monster_data,MonsterHunterWorld.exe+4F54890)
+define(armor_skills,MonsterHunterWorld.exe+4F52D18)
+define(save_data,MonsterHunterWorld.exe+4F54590)
+
+define(item_caps,MonsterHunterWorld.exe+4F52CD0)
+define(steamworks,MonsterHunterWorld.exe+4EC78C0)
+
+define(session_quest,MonsterHunterWorld.exe+4F4FAF0)
+
 # 24F52C20     - 48 8D 64 24 D8        - lea rsp,[rsp-28]
 # 24F52C25     - 50                    - push rax
 # 24F52C26     - 51                    - push rcx

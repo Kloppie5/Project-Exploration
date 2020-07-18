@@ -5,6 +5,10 @@
 
 \begin{document}
 	
+	Every operating system has its own representation and tool-set to create shared libraries. More or less the concepts are same. On Windows every object file (*.obj, *.dll, *.ocx, *.sys, *.exe etc…) follow a format called Portalbe Executable.
+
+Linux variants follow a format called Executable and Linkable Format (ELF). The ELF files are position independent (PIC) format. Shared libraries in Linux are referred as shared objects (generally with extension *.so). These are similar to DLLs in Windows platform. Even shared object files follow the ELF binary format.
+
 	\section*{ARM mode, Thumb mode, ARM64}
 	ARM is a RISC CPU designed with constant-length instructions; ARM mode used instructions encoded in 4 bytes. Because the most common instructions can be encoded using less information, Thumb mode uses instructions encoded in 2 bytes. Thumb-2 is an attempt at extending Thumb mode with a few 4 byte long instructions in order to compete with ARM mode. Thumb-2 is fairly successful, mostly due to XCode (for developing iOS applications) defaults to it.
 	
