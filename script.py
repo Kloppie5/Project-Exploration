@@ -1,4 +1,5 @@
 import os
+from disassemblers.disassembler_x86 import disassemble
 
 def hexview_line_gen ( f, start, limit = -1 ) :
     f.seek(start)
@@ -26,198 +27,7 @@ def hexview_line_gen ( f, start, limit = -1 ) :
 
         i += 16
 
-class ParseRule :
-
-    # byte : uint8
-    # pattern : str
-    # op : str
-    # params : [str]
-
-    def __init__ ( self, line ) :
-        byte, pattern, op, params = line.split()
-        byte = int(byte, 16)
-        params = params.split('_')
-        print(f"Created ParseRule({pattern}): {op} {params}")
-        self.byte = byte
-        self.pattern = pattern
-        self.op = op
-        self.params = params
-
-    def parse ( self, disassembler ) :
-        print(f"{disassembler.pos:08X}", end=' ')
-
-    def CJMP8       ( self, byte ) : # 70:cjmp   rel8
-        address = f"{self.pos:08X}"
-        self.pos += 1
-
-        t = byte & 0b00001111
-        op = ["JO", "JNO", "JC", "JNC", "JZ", "JNZ", "JNA", "JA", "JS", "JNS", "JP", "JNP", "JL", "JNL", "JNG", "JG"][t]
-
-        dist = int.from_bytes(self.stream.read(1), byteorder='little', signed=True)
-        self.pos += 1
-
-        hex = f"70:{t:X}    {dist &0xFFFFFFFF:08X}"
-        text = f"{op} {dist} to {self.pos+dist:08X}"
-
-        print(f"{address:8}: {hex:50} {text}")
-
-        for param in self.params :
-            if param == "AL" :
-                print(param)
-
-        print(f"{self.pattern} {self.op} {self.params}")
-
-
-REGISTER8BIT  = [ "al",  "cl",  "dl",  "bl",  "ah",  "ch",  "dh",  "bh", "r8l", "r9l", "r10l", "r11l", "r12l", "r13l", "r14l", "r15l"]
-REGISTER16BIT = [ "ax",  "cx",  "dx",  "bx",  "sp",  "bp",  "si",  "di", "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w"]
-REGISTER32BIT = ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"]
-
-class Disassembler :
-
-    """
-        Disassembler
-    """
-
-    def __init__ ( self, lanfile ) :
-        self.parsetables = {}
-        self.add_language ( "default", lanfile )
-
-    def add_language ( self, name, lanfile ) :
-        UNKNOWN_OPCODE = ParseRule ( "-1 x UNKNOWN_OPCODE -" )
-
-        parsetables[name] = [ UNKNOWN_OPCODE ] * 256
-
-        with open(lanfile, "rb") as f:
-            for line in f :
-                if line.strip() == "" :
-                    continue
-
-                parserule = ParseRule(line)
-
-                self.parsetables[name][parserule.byte] = parserule
-
-    def disassemble ( self, stream, start, stop ) :
-        pos = start
-        self.queue = []
-
-        while pos < stop :
-            byte = self.stream.read(1)
-            if not byte:
-                return
-            byte = ord(byte)
-            self.queue.append({ "byte" : byte })
-
-    def _read_modrm ( self ) :
-        byte = ord(self.stream.read(1))
-        mod = (byte & 0b11000000) >> 6
-        reg = (byte & 0b00111000) >> 3
-        rm  =  byte & 0b00000111
-        self.queue.append({
-            "type" : "modrm",
-            "byte" : byte,
-            "mod" : mod,
-            "reg" : reg,
-            "rm" : rm
-        })
-
-    def get_sib () -> (int, int, int) :
-        pass
-
-class Disassembler_x86:
-
-    def disassemble ( self, start, stop ) :
-
-        while self.pos < stop :
-            byte = self.stream.read(1)
-            if not byte:
-                return
-            byte = ord(byte)
-
-            self.parsetable[byte].parse(self)
-
-    def MODRM ( self, s ) -> (int, int, int, int, str, str, str) :
-        byte = self.stream.read(1)
-        self.pos += 1
-
-        regfield = ""
-        rmfield = ""
-
-        if not byte:
-            print("SPLIT233 ran out of stream")
-            return 0, 0, 0
-        byte = ord(byte)
-
-        mod = (byte & 0b11000000) >> 6
-        reg = (byte & 0b00111000) >> 3
-        rm  =  byte & 0b00000111
-
-        hex = f" {byte:02X}[{mod:02b} {reg:03b} {rm:03b}]"
-
-        if s == 0 :
-            regfield = self.REGISTER8BIT[reg]
-        else :
-            regfield = self.REGISTER32BIT[reg]
-
-        if mod == 0b00 and rm == 0b101 : # displacement-only mode
-            disp32 = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
-            self.pos += 4
-            hex += f" {disp32:08X}"
-            rmfield = f"[{disp32:+08X}]"
-        elif mod == 0b11 : # direct mode
-            rmfield = self.REGISTER32BIT[rm]
-        else :
-            rmloc = ""
-            if rm == 0b100 : # SIB mode
-                scale, index, base, sibbyte, rmloc, sibhex = self.SIB(mod)
-                hex += sibhex
-            else :
-                rmloc = self.REGISTER32BIT[rm]
-
-            offset = ""
-            if mod == 0b01 : # one-byte displacement mode
-                disp8 = int.from_bytes(self.stream.read(1), byteorder='little', signed=True)
-                self.pos += 1
-                hex += f" {disp8 &0xFF:02X}"
-                offset = f"{disp8:+02X}"
-            elif mod == 0b10 : # four-byte displacement mode
-                disp32 = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
-                self.pos += 4
-                hex += f" {disp32 &0xFFFFFFFF:08X}"
-                offset = f"{disp32:+08X}"
-
-            rmfield = f"[{rmloc}{offset}]"
-
-        return mod, reg, rm, byte, regfield, rmfield, hex
-
-    def SIB ( self, mod ) -> (int, int, int, int, str, str) :
-        byte = self.stream.read(1)
-        self.pos += 1
-
-        rmloc = ""
-
-        if not byte:
-            print("SPLIT233 ran out of stream")
-            return 0, 0, 0
-        byte = ord(byte)
-
-        scale = (byte & 0b11000000) >> 6
-        index = (byte & 0b00111000) >> 3
-        base  =  byte & 0b00000111
-
-        hex = f" {byte:02X}[{scale:02b} {index:03b} {base:03b}]"
-
-        rmloc = f"{self.REGISTER32BIT[index]}*{1<<scale}"
-        if base == 0b101 :
-            if mod == 0b00 : # displacement-only mode
-                disp32 = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
-                self.pos += 4
-                hex += f" {disp32 &0xFFFFFFFF:08X}"
-                rmloc += f"{disp32:+}"
-        else :
-            rmloc = f"{self.REGISTER32BIT[base]}+{rmloc}"
-
-        return scale, index, base, byte, rmloc, hex
-
+class Garbage :
     def UNKNOWN_OPCODE ( self, byte ) :
         print(f"Unknown opcode: {byte:02X}")
         self.pos += 1
@@ -341,36 +151,7 @@ class Disassembler_x86:
         text = f"{op} {rmfield}, {constant}"
 
         print(f"{address:8}: {hex:50} {text}")
-    def INT3        ( self, byte ) : # CC
-        address = f"{self.pos:08X}"
-        self.pos += 1
 
-        hex = "CC"
-        text = "INT3"
-
-        print(f"{address:8}: {hex:50} {text}")
-    def CALL        ( self, byte ) : # E8        rel16/32
-        address = f"{self.pos:08X}"
-        self.pos += 1
-
-        dist = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
-        self.pos += 4
-
-        hex = f"E8      {dist &0xFFFFFFFF:08X}"
-        text = f"CALL {dist} to {self.pos+dist:08X}"
-
-        print(f"{address:8}: {hex:50} {text}")
-    def JMP         ( self, byte ) : # E9        rel16/32
-        address = f"{self.pos:08X}"
-        self.pos += 1
-
-        dist = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
-        self.pos += 4
-
-        hex = f"E9      {dist &0xFFFFFFFF:08X}"
-        text = f"JMP {dist} to {self.pos+dist:08X}"
-
-        print(f"{address:8}: {hex:50} {text}")
     def IMMEDIATE   ( self, byte ) : # 80:xs/r   modrm
         address = f"{self.pos:08X}"
         self.pos += 1
@@ -491,20 +272,6 @@ class Disassembler_x86:
             text = f"PUSH {rmfield}"
         else :
             print("Invalid FE:s subselection")
-
-        print(f"{address:8}: {hex:50} {text}")
-    def CJMP32      ( self, byte ) : # 0F 70:cjmp   rel16/32
-        address = f"{self.pos:08X}"
-        self.pos += 1
-
-        t = byte & 0b00001111
-        op = ["JO", "JNO", "JC", "JNC", "JZ", "JNZ", "JNA", "JA", "JS", "JNS", "JP", "JNP", "JL", "JNL", "JNG", "JG"][t]
-
-        dist = int.from_bytes(self.stream.read(4), byteorder='little', signed=True)
-        self.pos += 4
-
-        hex = f"70:{t:X}    {dist &0xFFFFFFFF:08X}"
-        text = f"{op} {dist} to {self.pos+dist:08X}"
 
         print(f"{address:8}: {hex:50} {text}")
 
@@ -1189,7 +956,6 @@ for file in stream_dir_exe_gen() :
             if AddressOfEntryPoint >= VirtualAddress and AddressOfEntryPoint <= VirtualAddress+VirtualSize :
                 EntryPoint = AddressOfEntryPoint-VirtualAddress+PointerToRawData
                 print(f"> Found Entrypoint {EntryPoint:X} in section '{Name}' ({VirtualAddress}-{VirtualAddress+VirtualSize})")
-                file_disassembler = Disassembler_x86(f)
-                file_disassembler.disassemble(EntryPoint, EntryPoint+300)
+                disassemble(f, EntryPoint, EntryPoint+300)
         print()
         break
