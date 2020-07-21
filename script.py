@@ -956,6 +956,6 @@ for file in stream_dir_exe_gen() :
             if AddressOfEntryPoint >= VirtualAddress and AddressOfEntryPoint <= VirtualAddress+VirtualSize :
                 EntryPoint = AddressOfEntryPoint-VirtualAddress+PointerToRawData
                 print(f"> Found Entrypoint {EntryPoint:X} in section '{Name}' ({VirtualAddress}-{VirtualAddress+VirtualSize})")
-                disassemble(f, EntryPoint, EntryPoint+300)
+                disassemble(f, EntryPoint, EntryPoint+3000)
         print()
         break

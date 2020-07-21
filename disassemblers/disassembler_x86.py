@@ -1,6 +1,14 @@
 parsetables = {}
 
+registertable = {
+    "sreg" : [ "es",  "cs",  "ss",  "ds"],
+    "r8"   : [ "al",  "cl",  "dl",  "bl",  "ah",  "ch",  "dh",  "bh", "r8l", "r9l", "r10l", "r11l", "r12l", "r13l", "r14l", "r15l"],
+    "r16"  : [ "ax",  "cx",  "dx",  "bx",  "sp",  "bp",  "si",  "di", "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w"],
+    "r32"  : ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"],
+}
+
 ALUOPS = ["ADD", "OR", "ADC", "SBB", "AND", "SUB", "XOR", "CMP"]
+ROTOPS = ["ROL", "ROR", "RCL", "RCR", "SHL", "SHR", "SAL", "SAR"]
 cctable = ["O", "NO", "C", "NC", "Z", "NZ", "NA", "A", "S", "NS", "P", "NP", "L", "NL", "NG", "G"]
 def d0p0dw ( state ) :
     """
@@ -42,7 +50,15 @@ def d0l6d ( state ) :
         Segment register stack operations
         0l6+d
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    l = (byte & 0b00111000) >> 3
+    d =  byte & 0b00000001
+
+    op = ["PUSH", "POP"][d]
+    sreg = registertable["sreg"][l]
+
+    return f'{op} {sreg}'
 def d0h6 ( state ) :
     """
         Segment override prefix
@@ -66,13 +82,21 @@ def d10r ( state ) :
         REG INC
         10r
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    r = byte & 0b00000111
+
+    return f'INC {registertable["r32"][r]}'
 def d11r ( state ) :
     """
         REG DEC
         11r
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    r = byte & 0b00000111
+
+    return f'DEC {registertable["r32"][r]}'
 def d12r ( state ) :
     """
         REG PUSH
@@ -88,7 +112,11 @@ def d13r ( state ) :
         REG POP
         13r
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    r = byte & 0b00000111
+
+    return f'POP {registertable["r32"][r]}'
 def d14l ( state ) :
     return "PENDING"
 def d14h ( state ) :
@@ -98,7 +126,21 @@ def d150w0 ( state ) :
         PUSH imm
         150+w0 imm
     """
-    return "PENDING"
+    byte = state["byte"]
+    stream = state["stream"]
+
+    w = (byte & 0b00000010) >> 1
+
+    if w == 1 :
+        imm8 = int.from_bytes(stream.read(1), byteorder='little', signed=True)
+        state["pos"] += 1
+        state["hex"].append(f'{imm8&0xFF:08X}')
+        return f"PUSH {imm8}"
+    else :
+        imm32 = int.from_bytes(stream.read(4), byteorder='little', signed=True)
+        state["pos"] += 4
+        state["hex"].append(f'{imm32&0xFFFFFFFF:08X}')
+        return f"PUSH {imm32}"
 def d151w0 ( state ) :
     """
         IMUL reg rm imm
@@ -108,9 +150,32 @@ def d151w0 ( state ) :
 def d154dw ( state ) :
     """
         String IO
-        154+dw
+        154+dw m
     """
-    return "PENDING"
+    byte = state["byte"]
+    stream = state["stream"]
+
+    d = (byte & 0b00000010) >> 1
+    w =  byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    mem = 0
+    if w == 0 :
+        m8 = int.from_bytes(stream.read(1), byteorder='little', signed=True)
+        state["pos"] += 1
+        state["hex"].append(f'{m8&0xFF:08X}')
+        mem = m8
+    else :
+        m32 = int.from_bytes(stream.read(4), byteorder='little', signed=True)
+        state["pos"] += 4
+        state["hex"].append(f'{m32&0xFFFFFFFF:08X}')
+        mem = m32
+
+    instruction = f"INS {mem}, DX"
+    if d == 1 :
+        instruction = f"OUTS DX, {mem}"
+    return instruction
 def d160cc ( state ) :
     """
         Conditional short jump
@@ -145,22 +210,33 @@ def d200sw ( state ) :
     if w == 0 :
         imm8 = int.from_bytes(stream.read(1), byteorder='little', signed=True)
         state["pos"] += 1
+        state["hex"].append(f'{imm8&0xFF:08X}')
         return f"{ALUOPS[p]} {rmfield}, {imm8}"
-    if w == 1 and s == 0:
+    elif s == 0:
         imm32 = int.from_bytes(stream.read(4), byteorder='little', signed=True)
         state["pos"] += 4
+        state["hex"].append(f'{imm32&0xFFFFFFFF:08X}')
         return f"{ALUOPS[p]} {rmfield}, {imm32}"
-    if w == 1 and s == 1 : # sign-extend
+    else : # sign-extend
         imm8 = int.from_bytes(stream.read(1), byteorder='little', signed=True)
         state["pos"] += 1
+        state["hex"].append(f'{imm8&0xFF:08X}')
         return f"{ALUOPS[p]} {rmfield}, {imm8}"
-    return "INVALID OPCODE"
 def d204w ( state ) :
     """
-        ALU reg rm test
+        TEST reg rm
         204+w xrm
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    w = byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    rmfield = parse_rm(state)
+    regfield = parse_reg(state)
+
+    return f"TEST {rmfield}, {regfield}"
 def d206w ( state ) :
     """
         XCHG reg rm
@@ -200,21 +276,41 @@ def d215 ( state ) :
         LEA reg rm
         215 xrm
     """
-    return "PENDING"
+    state["size"] = "r32"
+
+    rmfield = parse_rm(state)
+    regfield = parse_reg(state)
+
+    return f"LEA {regfield}, {rmfield}"
 def d217r0 ( state ) :
-    return "PENDING"
+    read_xrm(state)
+    r = state["r"]
+    if r != 0 :
+        return "INVALID"
+
+    state["size"] = "r32"
+
+    rmfield = parse_rm(state)
+
+    return f"POP {rmfield}"
 def d22r ( state ) :
     """
         XCHG EAX reg
         22r
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    r = byte & 0b00000111
+
+    reg = registertable["r32"][r]
+
+    return f"XCHG EAX, {reg}"
 def d230 ( state ) :
     """
         CWDE
         230
     """
-    return "PENDING"
+    return "CWDE"
 def d231 ( state ) :
     """
         CDQ
@@ -254,19 +350,53 @@ def d240dw ( state ) :
         MOV acc mem
         240+dw disp
     """
-    return "PENDING"
+    byte = state["byte"]
+    stream = state["stream"]
+
+    d = (byte & 0b00000010) >> 1
+    w =  byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    acc = registertable[state["size"]][0]
+
+    mem = 0
+    if w == 0 :
+        moff8 = int.from_bytes(stream.read(1), byteorder='little', signed=True)
+        state["pos"] += 1
+        state["hex"].append(f'{moff8&0xFF:08X}')
+        mem = moff8
+    else :
+        moff32 = int.from_bytes(stream.read(4), byteorder='little', signed=True)
+        state["pos"] += 4
+        state["hex"].append(f'{moff32&0xFFFFFFFF:08X}')
+        mem = moff32
+
+    instruction = f"MOV {acc}, {mem}"
+    if d == 1 :
+        instruction = f"MOV {mem}, {acc}"
+
+    return instruction
 def d244w ( state ) :
     """
         MOVS
         244+w
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    w = byte & 0b00000001
+
+    return ["MOVS", "MOVSD"][w]
 def d246w ( state ) :
     """
         CMPS
         246+w
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    w = byte & 0b00000001
+
+    return ["CMPS", "CMPSD"][w]
 def d250w ( state ) :
     """
         ALU acc imm test
@@ -278,7 +408,11 @@ def d252w ( state ) :
         STOS
         252+w
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    w = byte & 0b00000001
+
+    return ["STOS", "STOSD"][w]
 def d254w ( state ) :
     """
         LODS
@@ -296,13 +430,58 @@ def d26wr ( state ) :
         MOV reg imm
         2[6+w]r imm
     """
-    return "PENDING"
+    byte = state["byte"]
+    stream = state["stream"]
+
+    w = (byte & 0b00001000) >> 3
+    r =  byte & 0b00000111
+
+    state["size"] = ["r8", "r32"][w]
+
+    reg = registertable[state["size"]][r]
+
+    if w == 0 :
+        imm8 = int.from_bytes(stream.read(1), byteorder='little', signed=True)
+        state["pos"] += 1
+        state["hex"].append(f'{imm8&0xFF:08X}')
+        return f"MOV {reg}, {imm8}"
+    if w == 1 :
+        imm32 = int.from_bytes(stream.read(4), byteorder='little', signed=True)
+        state["pos"] += 4
+        state["hex"].append(f'{imm32&0xFFFFFFFF:08X}')
+        return f"MOV {reg}, {imm32}"
+
+    return "INVALID"
 def d300w ( state ) :
     """
         ROT rm imm
         300+w xpm imm8
     """
-    return "PENDING"
+    byte = state["byte"]
+    stream = state["stream"]
+
+    read_xrm(state)
+
+    p = state["r"]
+
+    w = byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    rmfield = parse_rm(state)
+
+    if w == 0 :
+        imm8 = int.from_bytes(stream.read(1), byteorder='little', signed=True)
+        state["pos"] += 1
+        state["hex"].append(f'{imm8&0xFF:08X}')
+        return f"{ROTOPS[p]} {rmfield}, {imm8}"
+    if w == 1 :
+        imm32 = int.from_bytes(stream.read(4), byteorder='little', signed=True)
+        state["pos"] += 4
+        state["hex"].append(f'{imm32&0xFFFFFFFF:08X}')
+        return f"{ROTOPS[p]} {rmfield}, {imm32}"
+
+    return "INVALID"
 def d302 ( state ) :
     """
         RET imm
@@ -314,7 +493,7 @@ def d303 ( state ) :
         RET
         303
     """
-    return "PENDING"
+    return "RET"
 def d304 ( state ) :
     """
         LES
@@ -332,19 +511,45 @@ def d306w ( state ) :
         MOV rm imm
         306+w xrm imm
     """
-    return "PENDING"
+    byte = state["byte"]
+    stream = state["stream"]
+
+    w = byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    rmfield = parse_rm(state)
+
+    if w == 0 :
+        imm8 = int.from_bytes(stream.read(1), byteorder='little', signed=True)
+        state["pos"] += 1
+        state["hex"].append(f'{imm8&0xFF:08X}')
+        return f"MOV {rmfield}, {imm8}"
+    else :
+        imm32 = int.from_bytes(stream.read(4), byteorder='little', signed=True)
+        state["pos"] += 4
+        state["hex"].append(f'{imm32&0xFFFFFFFF:08X}')
+        return f"MOV {rmfield}, {imm32}"
 def d310 ( state ) :
     """
         ENTER locals, nesting
         310 imm32 imm8
     """
-    return "PENDING"
+    stream = state["stream"]
+
+    imm32 = int.from_bytes(stream.read(4), byteorder='little', signed=True)
+    imm8 = int.from_bytes(stream.read(1), byteorder='little', signed=True)
+    state["pos"] += 5
+    state["hex"].append(f'{imm32&0xFFFFFFFF:08X}')
+    state["hex"].append(f'{imm8&0xFF:08X}')
+
+    return f"ENTER {imm32}, {imm8}"
 def d311 ( state ) :
     """
         LEAVE
         311
     """
-    return "PENDING"
+    return "LEAVE"
 def d312 ( state ) :
     """
         RET FAR imm
@@ -386,19 +591,50 @@ def d320w ( state ) :
         ROT rm 1
         320+w xpm
     """
-    return "PENDING"
+    byte = state["byte"]
+    stream = state["stream"]
+
+    read_xrm(state)
+
+    p = state["r"]
+
+    w = byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    rmfield = parse_rm(state)
+
+    return f"{ROTOPS[p]} {rmfield}, 1"
 def d322w ( state ) :
     """
         ROT rm CL
         322+w xpm
     """
-    return "PENDING"
+    byte = state["byte"]
+    stream = state["stream"]
+
+    read_xrm(state)
+
+    p = state["r"]
+
+    w = byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    rmfield = parse_rm(state)
+
+    return f"{ROTOPS[p]} {rmfield}, CL"
 def d324 ( state ) :
     """
         AMX imm8
         324 imm8
     """
-    return "PENDING"
+    stream = state["stream"]
+
+    imm8 = int.from_bytes(stream.read(1), byteorder='little', signed=True)
+    state["pos"] += 1
+    state["hex"].append(f'{imm8&0xFF:08X}')
+    return f"AMX {imm8}"
 def d325 ( state ) :
     """
         ADX imm8
@@ -447,18 +683,29 @@ def d343 ( state ) :
         343 disp8
     """
     return "PENDING"
-def d344w ( state ) :
+def d344dw ( state ) :
     """
-        IN acc port
-        344+w imm8
+        Acc IO
+        344+dw imm8
     """
-    return "PENDING"
-def d346w ( state ) :
-    """
-        OUT port acc
-        346+w imm8
-    """
-    return "PENDING"
+    byte = state["byte"]
+    stream = state["stream"]
+
+    d = (byte & 0b00000010) >> 1
+    w =  byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    acc = registertable[state["size"]][0]
+
+    imm8 = int.from_bytes(stream.read(1), byteorder='little', signed=True)
+    state["pos"] += 1
+    state["hex"].append(f'{imm8&0xFF:08X}')
+
+    instruction = f"IN {acc}, {imm8}"
+    if d == 1 :
+        instruction = f"OUT {imm8}, {acc}"
+    return instruction
 def d350 ( state ) :
     """
         CALL disp
@@ -472,7 +719,7 @@ def d350 ( state ) :
     state["hex"].append(f'{disp32&0xFFFFFFFF:08X}')
 
     return f'CALL {disp32} to {state["pos"]+disp32:08X}'
-def d351 ( state ) :
+def d351w0 ( state ) :
     """
         JMP disp
         351 disp
@@ -480,21 +727,22 @@ def d351 ( state ) :
     byte = state["byte"]
     stream = state["stream"]
 
-    disp32 = int.from_bytes(stream.read(4), byteorder='little', signed=True)
-    state["pos"] += 4
-    state["hex"].append(f'{disp32&0xFFFFFFFF:08X}')
+    w = (byte & 0b00000010) >> 1
 
-    return f'JMP {disp32} to {state["pos"]+disp32:08X}'
+    if w == 1 :
+        disp8 = int.from_bytes(stream.read(4), byteorder='little', signed=True)
+        state["pos"] += 4
+        state["hex"].append(f'{disp8&0xFF:08X}')
+        return f'JMP {disp8} to {state["pos"]+disp8:08X}'
+    else :
+        disp32 = int.from_bytes(stream.read(4), byteorder='little', signed=True)
+        state["pos"] += 4
+        state["hex"].append(f'{disp32&0xFFFFFFFF:08X}')
+        return f'JMP {disp32} to {state["pos"]+disp32:08X}'
 def d352 ( state ) :
     """
         JMPF
         352
-    """
-    return "PENDING"
-def d353 ( state ) :
-    """
-        JMP rel8
-        353 rel8
     """
     return "PENDING"
 def d354w ( state ) :
@@ -532,70 +780,145 @@ def d363 ( state ) :
         REPE
         363
     """
-    return "PENDING"
+    return "REPE"
 def d364 ( state ) :
     """
         HLT
         364
     """
-    return "PENDING"
+    return "HLT"
 def d365 ( state ) :
     """
         CMC
         365
     """
     return "PENDING"
-def d366 ( state ) :
+def d366w ( state ) :
     """
         366 instruction
     """
-    return "PENDING"
+    read_xrm(state)
+    r = state["r"]
+    return [
+        d366wr0,
+        miss,
+        d366wr2,
+        d366wr3,
+        d366wr4,
+        d366wr5,
+        d366wr6,
+        d366wr7
+    ][r](state)
 def d366wr0 ( state ) :
     """
-        ALU rm imm test
+        TEST rm imm
         366+w x0m imm
     """
-    return "PENDING"
+    byte = state["byte"]
+    stream = state["stream"]
+
+    w = byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    rmfield = parse_rm(state)
+
+    if w == 0 :
+        imm8 = int.from_bytes(stream.read(1), byteorder='little', signed=True)
+        state["pos"] += 1
+        state["hex"].append(f'{imm8&0xFF:08X}')
+        return f"TEST {rmfield}, {imm8}"
+    if w == 1 :
+        imm32 = int.from_bytes(stream.read(4), byteorder='little', signed=True)
+        state["pos"] += 4
+        state["hex"].append(f'{imm32&0xFFFFFFFF:08X}')
+        return f"TEST {rmfield}, {imm32}"
+
+    return "INVALID"
 def d366wr2 ( state ) :
     """
         NOT rm
-        366 x2m
+        366+w x2m
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    w = byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    rmfield = parse_rm(state)
+
+    return f"NOT {rmfield}"
 def d366wr3 ( state ) :
     """
         NEG rm
-        366 x3m
+        366+w x3m
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    w = byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    rmfield = parse_rm(state)
+
+    return f"NEG {rmfield}"
 def d366wr4 ( state ) :
     """
         MUL rm
-        366 x4m
+        366+w x4m
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    w = byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    rmfield = parse_rm(state)
+
+    return f"MUL {rmfield}"
 def d366wr5 ( state ) :
     """
         IMUL rm
-        366 x5m
+        366+w x5m
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    w = byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    rmfield = parse_rm(state)
+
+    return f"IMUL {rmfield}"
 def d366wr6 ( state ) :
     """
         DIV rm
-        366 x6m
+        366+w x6m
     """
-    return "PENDING"
+    byte = state["byte"]
+
+    w = byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    rmfield = parse_rm(state)
+
+    return f"DIV {rmfield}"
 def d366wr7 ( state ) :
     """
         IDIV rm
-        366 x7m
+        366+w x7m
     """
-    return "PENDING"
-def d366 ( state ) :
-    return "PENDING"
-def d367 ( state ) :
-    return "PENDING"
+    byte = state["byte"]
+
+    w = byte & 0b00000001
+
+    state["size"] = ["r8", "r32"][w]
+
+    rmfield = parse_rm(state)
+
+    return f"IDIV {rmfield}"
 def d370 ( state ) :
     """
         CLC
@@ -613,7 +936,7 @@ def d372 ( state ) :
         CLI
         372
     """
-    return "PENDING"
+    return "CLI"
 def d373 ( state ) :
     """
         STI
@@ -625,13 +948,13 @@ def d374 ( state ) :
         CLD
         374
     """
-    return "PENDING"
+    return "CLD"
 def d375 ( state ) :
     """
         STD
         375
     """
-    return "PENDING"
+    return "STD"
 def d376wr01 ( state ) :
     """
         376+w x0m INC
@@ -642,11 +965,30 @@ def d377 ( state ) :
     """
         377 instruction
     """
-    return "PENDING"
+    read_xrm(state)
+    r = state["r"]
+    return [
+        d376wr01,
+        d376wr01,
+        d377r2,
+        d377r3,
+        d377r4,
+        d377r5,
+        d377r6,
+        miss
+    ][r](state)
 def d377r2 ( state ) :
     """
         CALL rm
         377 x2m
+    """
+    state["size"] = "r32"
+    rm = parse_rm(state)
+    return f"CALL {rm}"
+def d377r3 ( state ) :
+    """
+
+        377 x3m
     """
     return "PENDING"
 def d377r4 ( state ) :
@@ -654,17 +996,46 @@ def d377r4 ( state ) :
         JMP rm
         377 x4m
     """
+
+    state["size"] = "r32"
+
+    rm = parse_rm(state)
+
+    return f"JMP {rm}"
+def d377r5 ( state ) :
+    """
+
+        377 x5m
+    """
     return "PENDING"
 def d377r6 ( state ) :
     """
         PUSH rm
         377 x6m
     """
-    return "PENDING"
+    state["size"] = "r32"
+    rm = parse_rm(state)
+    return f"PUSH {rm}"
 
+def d017100cc ( state ) :
+    """
+        CMOVcc reg rm
+        017 100+cc
+    """
+    byte = state["byte"]
+    stream = state["stream"]
+
+    cc = cctable[byte&0xFF-0o100]
+
+    state["size"] = "r32"
+
+    rmfield = parse_rm(state)
+    regfield = parse_reg(state)
+
+    return f'CMOV{cc} {regfield}, {rmfield}'
 def d017200cc ( state ) :
     """
-        Conditional near jump
+        Jcc disp32
         017 200+cc disp32
     """
     byte = state["byte"]
@@ -679,13 +1050,9 @@ def d017200cc ( state ) :
     return f'J{cc} {disp32} to {state["pos"]+disp32:08X}'
 
 def miss ( state ) :
-    return f'MISSING {state["byte"]&0xFF:03o}'
+    return f'MISSING {state["byte"]&0xFF:03o}/{state["byte"]&0xFF:02X}'
 
-registertable = {
-    "r8"  : [ "al",  "cl",  "dl",  "bl",  "ah",  "ch",  "dh",  "bh", "r8l", "r9l", "r10l", "r11l", "r12l", "r13l", "r14l", "r15l"],
-    "r16" : [ "ax",  "cx",  "dx",  "bx",  "sp",  "bp",  "si",  "di", "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w"],
-    "r32" : ["eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"],
-}
+
 
 parsetables["x86"] = [
     d0p0dw, d0p0dw, d0p0dw, d0p0dw, d0p4w,  d0p4w,  d0l6d,  d0l6d,
@@ -719,9 +1086,9 @@ parsetables["x86"] = [
     d310,   d311,   d312,   d313,   d314,   d315,   d316,   d317,
     d320w,  d320w,  d322w,  d322w,  d324,   d325,   d326,   d327,
     d33,    d33,    d33,    d33,    d33,    d33,    d33,    d33,
-    d340,   d341,   d342,   d343,   d344w,  d344w,  d346w,  d346w,
-    d350,   d351,   d352,   d353,   d354w,  d354w,  d356w,  d356w,
-    d360,   d361,   d362,   d363,   d364,   d365,   d366,   d367,
+    d340,   d341,   d342,   d343,   d344dw, d344dw, d344dw, d344dw,
+    d350,   d351w0, d352,   d351w0, d354w,  d354w,  d356w,  d356w,
+    d360,   d361,   d362,   d363,   d364,   d365,   d366w,  d366w,
     d370,   d371,   d372,   d373,   d374,   d375,   d376wr01, d377,
 ]
 parsetables["x86_017"] = [
@@ -734,8 +1101,8 @@ parsetables["x86_017"] = [
     miss,   miss,   miss,   miss,   miss,   miss,   miss,   miss,
     miss,   miss,   miss,   miss,   miss,   miss,   miss,   miss,
 
-    miss,   miss,   miss,   miss,   miss,   miss,   miss,   miss,
-    miss,   miss,   miss,   miss,   miss,   miss,   miss,   miss,
+    d017100cc,  d017100cc,  d017100cc,  d017100cc,  d017100cc,  d017100cc,  d017100cc,  d017100cc,
+    d017100cc,  d017100cc,  d017100cc,  d017100cc,  d017100cc,  d017100cc,  d017100cc,  d017100cc,
     miss,   miss,   miss,   miss,   miss,   miss,   miss,   miss,
     miss,   miss,   miss,   miss,   miss,   miss,   miss,   miss,
     miss,   miss,   miss,   miss,   miss,   miss,   miss,   miss,
@@ -761,8 +1128,6 @@ parsetables["x86_017"] = [
     miss,   miss,   miss,   miss,   miss,   miss,   miss,   miss,
     miss,   miss,   miss,   miss,   miss,   miss,   miss,   miss,
 ]
-
-ROTOPS = ["ROL", "ROR", "RCL", "RCR", "SHL", "SHR", "SAL", "SAR"]
 
 def disassemble ( stream, start, stop ) :
     stream.seek(start)
@@ -787,7 +1152,8 @@ def disassemble ( stream, start, stop ) :
         state["pos"] += 1
 
         parse = parsetables["x86"][state["byte"]](state)
-        print(f'{" ".join(state["hex"]):50} {parse}')
+        if parse.startswith("PENDING") or parse.startswith("MISSING") :
+            print(f'{" ".join(state["hex"]):50} {parse}')
         pos = state["pos"]
 
 def read_xrm ( state ) :
@@ -813,7 +1179,6 @@ def parse_rm ( state ) -> str :
         return base
 
     if rm == 4 : # xr4 | sib
-        read_sib(state)
         base = parse_sib(state)
 
     if x == 0 : # 0rm
@@ -844,8 +1209,10 @@ def parse_reg ( state ) -> str :
 
 def parse_sib ( state ) -> str :
     read_xrm(state)
+    stream = state["stream"]
+    x = state["x"]
     if "sib" in state :
-        return
+        return state["sibaddress"]
     sib = state["sib"] = ord(state["stream"].read(1))
     state["pos"] += 1
 
@@ -867,10 +1234,11 @@ def parse_sib ( state ) -> str :
     if x == 1 : # 1rm | +disp8
         offset = int.from_bytes(stream.read(1), byteorder='little', signed=True)
         state["pos"] += 1
-        state["hex"].append(f'{disp8&0xFF:08X}')
+        state["hex"].append(f'{offset&0xFF:08X}')
     if x == 2 : # 2rm | +disp32
         offset = int.from_bytes(stream.read(4), byteorder='little', signed=True)
         state["pos"] += 4
-        state["hex"].append(f'{disp32&0xFFFFFFFF:08X}')
+        state["hex"].append(f'{offset&0xFFFFFFFF:08X}')
 
-    return f"{baseaddress}+{indexaddress}^{1<<scale}+{offset}"
+    state["sibaddress"] = sibaddress = f"{baseaddress}+{indexaddress}^{1<<scale}+{offset}"
+    return sibaddress
